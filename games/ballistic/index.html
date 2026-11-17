@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0e1a">
+<title>BALLISTIC! — Dodgeball Mayhem</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='44' fill='%23ffd23f'/><circle cx='50' cy='50' r='44' fill='none' stroke='%23141a2b' stroke-width='7'/><path d='M14 42 Q50 58 86 38 M18 68 Q50 78 82 66' fill='none' stroke='%23e63946' stroke-width='6'/></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main id="stage" aria-label="Ballistic dodgeball game">
+  <canvas id="game" width="1280" height="720"></canvas>
+
+  <div id="hud" class="hud is-hidden" aria-live="polite">
+    <div class="hud-left">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-score-row"><span id="score">0</span><span id="combo" class="combo">×1</span></div>
+    </div>
+    <div class="hud-center">
+      <div class="wave-pill"><span>WAVE</span><strong id="wave">1</strong></div>
+      <div id="timerPill" class="wave-pill timer-pill is-hidden"><span>TIME</span><strong id="timer">60</strong></div>
+    </div>
+    <div class="hud-right">
+      <div class="stat-block">
+        <div class="hud-label">ENERGY</div>
+        <div id="hearts" class="hearts"></div>
+      </div>
+      <div class="stat-block ammo-block">
+        <div class="hud-label">BALLS</div>
+        <div id="ammo" class="ammo"></div>
+      </div>
+      <button id="muteBtn" class="icon-btn" aria-label="Toggle sound" title="Sound">♪</button>
+      <button id="pauseBtn" class="icon-btn" aria-label="Pause game" title="Pause">II</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="flash" class="flash"></div>
+
+  <section id="menu" class="overlay">
+    <div class="menu-inner">
+      <div class="brand-row">
+        <div class="logo-ball" aria-hidden="true"><span></span></div>
+        <div>
+          <h1 class="logo">BALLISTIC<span>!</span></h1>
+          <p class="subtitle">DODGEBALL MAYHEM</p>
+        </div>
+      </div>
+      <p class="tagline">Last ball standing wins. Catch their throws. Empty the court.</p>
+      <div class="options">
+        <div class="option-group">
+          <div class="option-label">GAME MODE</div>
+          <div id="modeSelect" class="mode-grid">
+            <button type="button" class="mode-card is-selected" data-mode="classic">
+              <strong>CLASSIC</strong><span>3 lives · endless waves</span>
+            </button>
+            <button type="button" class="mode-card" data-mode="blitz">
+              <strong>BLITZ</strong><span>60 seconds · score rush</span>
+            </button>
+            <button type="button" class="mode-card" data-mode="ironman">
+              <strong>IRONMAN</strong><span>1 life · no heart drops</span>
+            </button>
+          </div>
+        </div>
+        <div class="diff-row">
+          <div class="option-label">DIFFICULTY</div>
+          <div id="diffSelect" class="diff-select">
+            <button type="button" data-diff="rookie">ROOKIE</button>
+            <button type="button" data-diff="pro" class="is-selected">PRO</button>
+            <button type="button" data-diff="allstar">ALL-STAR</button>
+          </div>
+        </div>
+      </div>
+      <button id="playBtn" class="big-btn">PLAY <span>▶</span></button>
+      <p class="best-line">BEST <strong id="bestScore">0</strong></p>
+      <div class="controls-card">
+        <div class="control"><kbd>WASD</kbd><span>Move</span></div>
+        <div class="control"><kbd>MOUSE</kbd><span>Aim</span></div>
+        <div class="control"><kbd>CLICK</kbd><span>Throw</span></div>
+        <div class="control"><kbd>SPACE</kbd><span>Catch</span></div>
+        <div class="control"><kbd>SHIFT</kbd><span>Dash</span></div>
+        <div class="control"><kbd>P</kbd><span>Pause</span></div>
+      </div>
+      <p class="tip-line">Walk over loose balls to reload. A perfect catch takes the thrower out.</p>
+    </div>
+  </section>
+
+  <section id="pauseScreen" class="overlay is-hidden">
+    <div class="panel">
+      <p class="eyebrow">TIMEOUT</p>
+      <h2>PAUSED</h2>
+      <button id="resumeBtn" class="big-btn">RESUME</button>
+      <button id="quitBtn" class="ghost-btn">QUIT TO MENU</button>
+    </div>
+  </section>
+
+  <section id="gameover" class="overlay is-hidden">
+    <div class="panel">
+      <p class="eyebrow">FINAL WHISTLE</p>
+      <h2 id="endTitle" class="ko-title">KNOCKED OUT</h2>
+      <div class="result-grid">
+        <div><span>SCORE</span><strong id="finalScore">0</strong></div>
+        <div><span>WAVE</span><strong id="finalWave">1</strong></div>
+        <div><span>BEST</span><strong id="finalBest">0</strong></div>
+      </div>
+      <button id="retryBtn" class="big-btn">RUN IT BACK</button>
+      <button id="menuBtn" class="ghost-btn">MAIN MENU</button>
+    </div>
+  </section>
+
+  <div id="touchControls" class="touch-controls" aria-hidden="true">
+    <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+    <div class="touch-actions">
+      <button id="dashTouch" class="touch-btn dash-btn" aria-label="Dash">DASH</button>
+      <button id="catchTouch" class="touch-btn catch-btn" aria-label="Catch">CATCH</button>
+      <button id="throwTouch" class="touch-btn throw-btn" aria-label="Throw">THROW</button>
+    </div>
+  </div>
+
+  <div id="selftest" class="selftest is-hidden"></div>
+</main>
+<script src="vendor/three.min.js"></script>
+<script src="render3d.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

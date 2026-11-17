@@ -38,6 +38,7 @@ body{
   overflow-x:hidden;
 }
 body.locked{overflow:hidden}
+[hidden]{display:none !important}
 h1,h2,h3,h4,p{margin:0}
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit}
@@ -181,6 +182,7 @@ main{max-width:1280px;margin:0 auto;padding:0 clamp(18px,4vw,54px) 80px}
 .game-card:hover{transform:translateY(-4px);border-color:rgba(184,255,61,.35);box-shadow:0 22px 45px -22px rgba(0,0,0,.9),0 0 0 1px rgba(184,255,61,.12)}
 .game-cover{position:relative;aspect-ratio:16/10;overflow:hidden;background:#0b0d15}
 .game-cover canvas,.game-cover .cover-art{position:absolute;inset:0;width:100%;height:100%;display:block}
+img.cover-art{object-fit:cover;object-position:center top}
 .game-cover::after{
   content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,transparent 40%,rgba(9,10,16,.55) 100%);
@@ -360,6 +362,7 @@ kbd{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.08);padd
 .game-modal-card{max-width:640px;display:grid;grid-template-columns:1fr 1.15fr}
 .game-modal-art{position:relative;min-height:300px;background:#0b0d15;overflow:hidden}
 .game-modal-art canvas,.game-modal-art .cover-art{position:absolute;inset:0;width:100%;height:100%;display:block}
+.game-modal-art img.cover-art{object-fit:cover;object-position:center top}
 .game-modal-art::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 55%,rgba(12,14,23,.9) 100%)}
 .game-modal-body{padding:34px 30px 26px;display:flex;flex-direction:column;gap:10px}
 .game-modal-body h3{font-size:26px;letter-spacing:-.025em;line-height:1.15;margin-top:6px}

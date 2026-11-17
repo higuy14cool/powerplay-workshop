@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "powerplay.games.v1";
+  const STORAGE_KEY = "powerplay.games.v2";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -16,66 +16,71 @@
       genre: "Arcade",
       status: "Released",
       pitch: "Tap fading nodes against the clock. Chains multiply everything.",
-      plays: 842,
-      hours: 12.5,
-      updated: "2 days ago",
+      plays: 0,
+      hours: 0,
+      updated: "just added",
       cover: { type: "grid", colors: ["#b8ff3d", "#2dd4ef"] },
       playable: true,
     },
     {
-      id: "neon-drift",
-      title: "Neon Drift",
+      id: "ballistic",
+      title: "BALLISTIC!",
       genre: "Arcade",
-      status: "In progress",
-      pitch: "A one-thumb racer through a collapsing synthwave skyline.",
-      plays: 190,
-      hours: 4.2,
-      updated: "yesterday",
-      cover: { type: "speed", colors: ["#8b5cf6", "#ff5f9e"] },
-    },
-    {
-      id: "block-cascade",
-      title: "Block Cascade",
-      genre: "Puzzle",
       status: "Released",
-      pitch: "Gravity puzzle where every block you place wakes its neighbours.",
-      plays: 1204,
-      hours: 26.8,
-      updated: "5 days ago",
-      cover: { type: "blocks", colors: ["#ffb020", "#ff5f9e"] },
+      pitch: "Dodgeball mayhem in 3D. Catch their throws, empty the court, be the last one standing.",
+      plays: 0,
+      hours: 0,
+      updated: "just added",
+      cover: { image: "assets/covers/ballistic.jpg", colors: ["#ffd23f", "#e63946"] },
+      url: "games/ballistic/",
     },
     {
-      id: "orbit-lab",
-      title: "Orbit Lab",
-      genre: "Sandbox",
+      id: "touchdown",
+      title: "Touchdown",
+      genre: "Sports",
       status: "Released",
-      pitch: "Throw planets at each other and watch the physics do the rest.",
-      plays: 456,
-      hours: 9.1,
-      updated: "1 week ago",
-      cover: { type: "orbits", colors: ["#2dd4ef", "#8b5cf6"] },
+      pitch: "NFL franchise mode: build your team, call the plays and own the season.",
+      plays: 0,
+      hours: 0,
+      updated: "just added",
+      cover: { image: "assets/covers/touchdown.jpg", colors: ["#2dd4ef", "#b8ff3d"] },
+      url: "games/touchdown/",
     },
     {
-      id: "ghost-signal",
-      title: "Ghost Signal",
-      genre: "Prototype",
-      status: "Prototype",
-      pitch: "A radar that listens. Something is answering from the dark.",
-      plays: 87,
-      hours: 1.4,
-      updated: "3 weeks ago",
-      cover: { type: "waves", colors: ["#ff5f9e", "#8b5cf6"] },
+      id: "hockey-showdown",
+      title: "Hockey Showdown",
+      genre: "Sports",
+      status: "Released",
+      pitch: "Arcade ice hockey — pick a team, hit the ice and take the shot.",
+      plays: 0,
+      hours: 0,
+      updated: "just added",
+      cover: { image: "assets/covers/hockey.jpg", colors: ["#8ee7ff", "#1d4ed8"] },
+      url: "games/hockey/",
     },
     {
-      id: "tile-tactics",
-      title: "Tile Tactics",
-      genre: "Puzzle",
-      status: "In progress",
-      pitch: "Turn-based skirmishes on a board that rewrites itself each round.",
-      plays: 233,
-      hours: 6.7,
-      updated: "4 days ago",
-      cover: { type: "tiles", colors: ["#b8ff3d", "#ffb020"] },
+      id: "dunkin-hoops",
+      title: "Dunkin' Hoops",
+      genre: "Sports",
+      status: "Released",
+      pitch: "Fast arcade basketball with a shot clock, steals, blocks and big dunks.",
+      plays: 0,
+      hours: 0,
+      updated: "just added",
+      cover: { image: "assets/covers/dunkin.jpg", colors: ["#ffb020", "#ff5f3d"] },
+      url: "games/dunkin/",
+    },
+    {
+      id: "prokick",
+      title: "ProKick",
+      genre: "Sports",
+      status: "Released",
+      pitch: "The competitive football game: build your team and own the pitch.",
+      plays: 0,
+      hours: 0,
+      updated: "just added",
+      cover: { image: "assets/covers/prokick.jpg", colors: ["#b8ff3d", "#0ea5e9"] },
+      url: "games/prokick/",
     },
   ];
 
@@ -343,6 +348,13 @@
     return "status-released";
   }
 
+  function coverMarkup(game) {
+    if (game.cover && game.cover.image) {
+      return `<img class="cover-art" src="${escapeHtml(game.cover.image)}" alt="" loading="lazy" decoding="async">`;
+    }
+    return '<canvas aria-hidden="true"></canvas>';
+  }
+
   function renderLibrary() {
     const grid = $("#gameGrid");
     const list = visibleGames();
@@ -359,7 +371,7 @@
       card.innerHTML = `
         <div class="game-cover">
           <span class="badge ${statusClass(game.status)}"><i></i>${escapeHtml(game.status)}</span>
-          <canvas aria-hidden="true"></canvas>
+          ${coverMarkup(game)}
           <span class="play-float" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7V5z" fill="currentColor"/></svg>
           </span>
@@ -440,20 +452,20 @@
     $("#gameModalMeta").innerHTML = `
       <div class="meta-cell"><span>plays</span><b>${(game.plays || 0).toLocaleString("en-US")}</b></div>
       <div class="meta-cell"><span>hours</span><b>${(game.hours || 0).toFixed(1)}</b></div>
-      <div class="meta-cell"><span>engine</span><b>${game.playable ? "Canvas 2D" : "Prototype"}</b></div>
+      <div class="meta-cell"><span>engine</span><b>${game.playable ? "Canvas 2D" : game.url ? "HTML5" : "Prototype"}</b></div>
       <div class="meta-cell"><span>updated</span><b>${escapeHtml(game.updated || "just now")}</b></div>`;
 
     const art = $("#gameModalArt");
-    art.innerHTML = "<canvas></canvas>";
+    art.innerHTML = coverMarkup(game);
     requestAnimationFrame(() => {
       const canvas = art.querySelector("canvas");
       if (canvas) paintCover(canvas, game);
     });
 
     const playBtn = $("#playGameBtn");
-    playBtn.hidden = !game.playable;
-    playBtn.textContent = "\u25B6 Play now";
-    $("#deleteGameBtn").hidden = !!game.playable;
+    playBtn.hidden = !(game.playable || game.url);
+    playBtn.textContent = game.url ? "\u25B6 Play now" : "\u25B6 Play now";
+    $("#deleteGameBtn").hidden = game.id === "pulse-grid";
 
     openModal("game");
   }
@@ -537,7 +549,7 @@
 
   function handleDelete() {
     const game = state.activeGame;
-    if (!game || game.playable) return;
+    if (!game || game.id === "pulse-grid") return;
     state.games = state.games.filter((g) => g.id !== game.id);
     saveGames();
     renderLibrary();
@@ -600,8 +612,14 @@
     $("#addGameForm").addEventListener("submit", handleAddSubmit);
     $("#deleteGameBtn").addEventListener("click", handleDelete);
     $("#playGameBtn").addEventListener("click", () => {
+      const game = state.activeGame;
       closeModal("game");
-      if (window.PowerplayGame) window.PowerplayGame.start(state.activeGame);
+      if (!game) return;
+      if (game.url) {
+        window.open(game.url, "_blank", "noopener");
+        return;
+      }
+      if (window.PowerplayGame) window.PowerplayGame.start(game);
     });
 
     $$("[data-close]").forEach((el) => {

@@ -72,8 +72,8 @@
       </div>
       <div class="stat stat-wide">
         <span class="stat-label">currently building</span>
-        <strong id="statBuilding">Pulse Grid v2</strong>
-        <div class="meter"><i style="width:72%"></i></div>
+        <strong id="statBuilding">All shipped</strong>
+        <div class="meter"><i style="width:100%"></i></div>
       </div>
     </div>
   </section>
@@ -95,6 +95,7 @@
     <div class="filters" id="filters" role="tablist" aria-label="Filter games">
       <button class="chip is-active" data-filter="all" role="tab" aria-selected="true">All</button>
       <button class="chip" data-filter="Arcade" role="tab" aria-selected="false">Arcade</button>
+      <button class="chip" data-filter="Sports" role="tab" aria-selected="false">Sports</button>
       <button class="chip" data-filter="Puzzle" role="tab" aria-selected="false">Puzzle</button>
       <button class="chip" data-filter="Sandbox" role="tab" aria-selected="false">Sandbox</button>
       <button class="chip" data-filter="Prototype" role="tab" aria-selected="false">Prototypes</button>
@@ -245,11 +246,12 @@
     <p class="eyebrow">// add to library</p>
     <h3 id="addModalTitle">Log a new game</h3>
     <form id="addGameForm" class="form">
-      <label>Title<input name="title" required maxlength="40" placeholder="e.g. Neon Drift"></label>
+      <label>Title<input name="title" required maxlength="40" placeholder="e.g. Skyline Sprint"></label>
       <div class="form-row">
         <label>Genre
           <select name="genre">
             <option>Arcade</option>
+            <option>Sports</option>
             <option>Puzzle</option>
             <option>Sandbox</option>
             <option>Prototype</option>
