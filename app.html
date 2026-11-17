@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>POWERPLAY Workshop — App</title>
+<meta name="theme-color" content="#0a0b10">
+<link rel="manifest" href="app.webmanifest">
+<link rel="stylesheet" href="assets/app-shell.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b6ff3d'/%3E%3Cpath d='M32 12v16M20 20a17 17 0 1 0 24 0' stroke='%23080810' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body data-theme="lime">
+
+<!-- ================= LOGIN ================= -->
+<section class="login" id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      </span>
+      <span class="brand-type"><strong>POWERPLAY</strong><em>Workshop</em></span>
+    </div>
+    <h1>Sign in</h1>
+    <p class="muted">Your workshop, your games, your team.</p>
+    <form id="loginForm" autocomplete="off" novalidate>
+      <label class="field">
+        <span>Username</span>
+        <input id="loginUser" name="username" type="text" placeholder="username" required autocapitalize="none" spellcheck="false">
+      </label>
+      <label class="field">
+        <span>Passcode</span>
+        <input id="loginPass" name="passcode" type="password" placeholder="passcode" required>
+      </label>
+      <p class="form-error" id="loginError" role="alert" hidden></p>
+      <button class="btn btn-accent btn-block" type="submit">Enter workshop</button>
+    </form>
+    <p class="login-foot muted">Accounts are created by an admin inside the app.</p>
+  </div>
+</section>
+
+<!-- ================= APP ================= -->
+<div class="app" id="appShell" hidden>
+  <header class="appbar">
+    <a class="appbar-brand" href="#" data-view="home">
+      <span class="brand-mark sm">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      </span>
+      <span class="brand-type"><strong>POWERPLAY</strong><em>Workshop</em></span>
+    </a>
+
+    <div class="appbar-actions">
+      <button class="pill-btn" id="navWorkers" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M16 8.5a2.6 2.6 0 1 1 0 5.2M17.5 14.2c1.9.4 3 1.9 3.4 4.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Workers
+      </button>
+      <button class="pill-btn admin-only" id="navAddPerson" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 19c.6-3.2 2.7-5 6-5s5.4 1.8 6 5M18 7v6M15 10h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Add person
+      </button>
+      <button class="pill-btn admin-only" id="navAddGame" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        New game
+      </button>
+      <button class="pill-btn" id="navLogout" type="button" title="Sign out">Sign out</button>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <!-- ---------- HOME ---------- -->
+    <section class="view" id="view-home">
+      <div class="view-head">
+        <div>
+          <p class="eyebrow" id="homeEyebrow">// your workshop</p>
+          <h1 id="homeTitle">Your games</h1>
+        </div>
+        <p class="muted" id="homeNote"></p>
+      </div>
+      <div class="game-grid" id="appGameGrid"></div>
+      <p class="empty-note" id="appGameEmpty" hidden>No games here yet.</p>
+    </section>
+
+    <!-- ---------- WORKERS ---------- -->
+    <section class="view" id="view-workers" hidden>
+      <div class="view-head">
+        <div>
+          <p class="eyebrow">// team</p>
+          <h1>Workers</h1>
+        </div>
+        <p class="muted" id="workersNote"></p>
+      </div>
+
+      <div class="workers-layout">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Assignments</h2>
+            <span class="tag" id="assignCount">0</span>
+          </div>
+          <form class="assign-form" id="assignForm" hidden>
+            <label class="field tight">
+              <span>Game</span>
+              <select id="assignGame"></select>
+            </label>
+            <label class="field tight">
+              <span>Worker</span>
+              <select id="assignWorker"></select>
+            </label>
+            <button class="btn btn-accent btn-small" type="submit">Assign</button>
+          </form>
+          <ul class="assign-list" id="assignList"></ul>
+          <p class="empty-note" id="assignEmpty" hidden>Nothing assigned yet.</p>
+        </div>
+
+        <div class="panel chat-panel">
+          <div class="chat-tabs" id="chatTabs" role="tablist"></div>
+          <div class="chat-log" id="chatLog" aria-live="polite"></div>
+          <form class="chat-form" id="chatForm" autocomplete="off">
+            <input id="chatInput" type="text" placeholder="Message the team…" maxlength="400" aria-label="Message">
+            <button class="btn btn-accent" type="submit" aria-label="Send">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-3.4-6.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel team-panel">
+        <div class="panel-head"><h2>Team</h2><span class="tag" id="teamCount">0</span></div>
+        <ul class="team-list" id="teamList"></ul>
+      </div>
+    </section>
+
+    <!-- ---------- PROFILE ---------- -->
+    <section class="view" id="view-profile" hidden>
+      <div class="view-head">
+        <div>
+          <p class="eyebrow">// profile</p>
+          <h1>Your settings</h1>
+        </div>
+        <p class="muted" id="profileRole"></p>
+      </div>
+
+      <div class="profile-layout">
+        <div class="panel">
+          <div class="panel-head"><h2>Account</h2></div>
+          <div class="avatar-row">
+            <div class="avatar big" id="avatarPreview"></div>
+            <div class="avatar-actions">
+              <label class="btn btn-ghost btn-small" for="avatarFile">Change picture</label>
+              <input id="avatarFile" type="file" accept="image/*" hidden>
+              <button class="btn btn-ghost btn-small" id="avatarClear" type="button">Remove picture</button>
+              <p class="hint muted">Square images look best. Stored on this device.</p>
+            </div>
+          </div>
+          <form id="profileForm" class="profile-form" autocomplete="off">
+            <label class="field">
+              <span>Username</span>
+              <input id="profileUser" type="text" maxlength="24" required autocapitalize="none" spellcheck="false">
+            </label>
+            <label class="field">
+              <span>Passcode</span>
+              <input id="profilePass" type="password" maxlength="40" required>
+            </label>
+            <p class="form-error" id="profileError" role="alert" hidden></p>
+            <button class="btn btn-accent" type="submit">Save changes</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><h2>App colours</h2></div>
+          <p class="muted small">Pick an accent, or set your own.</p>
+          <div class="swatches" id="swatches"></div>
+          <label class="field">
+            <span>Custom accent</span>
+            <input id="customAccent" type="color" value="#b6ff3d">
+          </label>
+          <button class="btn btn-ghost btn-small" id="resetTheme" type="button">Reset to lime</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- bottom-left icon: my profile -->
+  <button class="me-btn" id="meBtn" type="button" aria-label="Open your profile" aria-haspopup="dialog">
+    <span class="avatar" id="meAvatar"></span>
+  </button>
+</div>
+
+<!-- ================= MODALS ================= -->
+<div class="modal" id="personModal" role="dialog" aria-modal="true" aria-labelledby="personTitle" hidden>
+  <div class="modal-backdrop" data-close="person"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="personTitle">Add person</h2>
+      <button class="icon-btn" data-close="person" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="personForm" class="stack" autocomplete="off">
+      <label class="field">
+        <span>Username</span>
+        <input id="personUser" type="text" maxlength="24" required autocapitalize="none" spellcheck="false" placeholder="e.g. sam">
+      </label>
+      <label class="field">
+        <span>Passcode</span>
+        <input id="personPass" type="text" maxlength="40" required placeholder="e.g. team123">
+      </label>
+      <label class="field">
+        <span>Role</span>
+        <select id="personRole">
+          <option value="worker">Worker</option>
+          <option value="admin">Admin</option>
+        </select>
+      </label>
+      <p class="hint muted">Admins add people and create games. Workers see only the games assigned to them.</p>
+      <p class="form-error" id="personError" role="alert" hidden></p>
+      <button class="btn btn-accent btn-block" type="submit">Create account</button>
+    </form>
+  </div>
+</div>
+
+<div class="modal" id="gameModal" role="dialog" aria-modal="true" aria-labelledby="gameTitle" hidden>
+  <div class="modal-backdrop" data-close="game"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="gameTitle">New game</h2>
+      <button class="icon-btn" data-close="game" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="gameForm" class="stack" autocomplete="off">
+      <label class="field">
+        <span>Title</span>
+        <input id="gameTitleInput" type="text" maxlength="40" required placeholder="e.g. Skyline Sprint">
+      </label>
+      <label class="field">
+        <span>Genre</span>
+        <select id="gameGenre">
+          <option>Sports</option><option>Arcade</option><option>Puzzle</option><option>Sandbox</option><option>Prototype</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Pitch</span>
+        <textarea id="gamePitch" maxlength="140" rows="2" placeholder="One line about the game"></textarea>
+      </label>
+      <p class="form-error" id="gameError" role="alert" hidden></p>
+      <button class="btn btn-accent btn-block" type="submit">Add to workshop</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="assets/games-data.js"></script>
+<script src="assets/accounts.js"></script>
+<script src="assets/app-ui.js"></script>
+</body>
+</html>

@@ -4,85 +4,14 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "powerplay.games.v2";
+  const STORAGE_KEY = "powerplay.games.v3";
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
   /* ---------- seed library ---------- */
-  const SEED_GAMES = [
-    {
-      id: "pulse-grid",
-      title: "Pulse Grid",
-      genre: "Arcade",
-      status: "Released",
-      pitch: "Tap fading nodes against the clock. Chains multiply everything.",
-      plays: 0,
-      hours: 0,
-      updated: "just added",
-      cover: { type: "grid", colors: ["#b8ff3d", "#2dd4ef"] },
-      playable: true,
-    },
-    {
-      id: "ballistic",
-      title: "BALLISTIC!",
-      genre: "Arcade",
-      status: "Released",
-      pitch: "Dodgeball mayhem in 3D. Catch their throws, empty the court, be the last one standing.",
-      plays: 0,
-      hours: 0,
-      updated: "just added",
-      cover: { image: "assets/covers/ballistic.jpg", colors: ["#ffd23f", "#e63946"] },
-      url: "games/ballistic/",
-    },
-    {
-      id: "touchdown",
-      title: "Touchdown",
-      genre: "Sports",
-      status: "Released",
-      pitch: "NFL franchise mode: build your team, call the plays and own the season.",
-      plays: 0,
-      hours: 0,
-      updated: "just added",
-      cover: { image: "assets/covers/touchdown.jpg", colors: ["#2dd4ef", "#b8ff3d"] },
-      url: "games/touchdown/",
-    },
-    {
-      id: "hockey-showdown",
-      title: "Hockey Showdown",
-      genre: "Sports",
-      status: "Released",
-      pitch: "Arcade ice hockey — pick a team, hit the ice and take the shot.",
-      plays: 0,
-      hours: 0,
-      updated: "just added",
-      cover: { image: "assets/covers/hockey.jpg", colors: ["#8ee7ff", "#1d4ed8"] },
-      url: "games/hockey/",
-    },
-    {
-      id: "dunkin-hoops",
-      title: "Dunkin' Hoops",
-      genre: "Sports",
-      status: "Released",
-      pitch: "Fast arcade basketball with a shot clock, steals, blocks and big dunks.",
-      plays: 0,
-      hours: 0,
-      updated: "just added",
-      cover: { image: "assets/covers/dunkin.jpg", colors: ["#ffb020", "#ff5f3d"] },
-      url: "games/dunkin/",
-    },
-    {
-      id: "prokick",
-      title: "ProKick",
-      genre: "Sports",
-      status: "Released",
-      pitch: "The competitive football game: build your team and own the pitch.",
-      plays: 0,
-      hours: 0,
-      updated: "just added",
-      cover: { image: "assets/covers/prokick.jpg", colors: ["#b8ff3d", "#0ea5e9"] },
-      url: "games/prokick/",
-    },
-  ];
+  const SEED_GAMES = (window.PowerplayGames ? window.PowerplayGames.GAMES : []).map((g) => ({
+    ...g, plays: 0, hours: 0, updated: "just added",
+  }));
 
   const state = {
     games: [],
@@ -452,7 +381,7 @@
     $("#gameModalMeta").innerHTML = `
       <div class="meta-cell"><span>plays</span><b>${(game.plays || 0).toLocaleString("en-US")}</b></div>
       <div class="meta-cell"><span>hours</span><b>${(game.hours || 0).toFixed(1)}</b></div>
-      <div class="meta-cell"><span>engine</span><b>${game.playable ? "Canvas 2D" : game.url ? "HTML5" : "Prototype"}</b></div>
+      <div class="meta-cell"><span>engine</span><b>${game.url ? "HTML5" : "Prototype"}</b></div>
       <div class="meta-cell"><span>updated</span><b>${escapeHtml(game.updated || "just now")}</b></div>`;
 
     const art = $("#gameModalArt");
@@ -463,9 +392,8 @@
     });
 
     const playBtn = $("#playGameBtn");
-    playBtn.hidden = !(game.playable || game.url);
-    playBtn.textContent = game.url ? "\u25B6 Play now" : "\u25B6 Play now";
-    $("#deleteGameBtn").hidden = game.id === "pulse-grid";
+    playBtn.hidden = !game.url;
+    $("#deleteGameBtn").hidden = false;
 
     openModal("game");
   }
@@ -549,7 +477,7 @@
 
   function handleDelete() {
     const game = state.activeGame;
-    if (!game || game.id === "pulse-grid") return;
+    if (!game) return;
     state.games = state.games.filter((g) => g.id !== game.id);
     saveGames();
     renderLibrary();
@@ -615,11 +543,7 @@
       const game = state.activeGame;
       closeModal("game");
       if (!game) return;
-      if (game.url) {
-        window.open(game.url, "_blank", "noopener");
-        return;
-      }
-      if (window.PowerplayGame) window.PowerplayGame.start(game);
+      if (game.url) window.open(game.url, "_blank", "noopener");
     });
 
     $$("[data-close]").forEach((el) => {

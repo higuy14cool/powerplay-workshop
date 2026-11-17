@@ -1,0 +1,17 @@
+{
+  "name": "POWERPLAY Workshop",
+  "short_name": "POWERPLAY",
+  "start_url": "./app.html",
+  "display": "standalone",
+  "background_color": "#07080d",
+  "theme_color": "#0a0b10",
+  "description": "Your game workshop: library, team assignments and chats.",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='44' fill='%23b6ff3d'/%3E%3Cpath d='M96 36v48M60 60a47 47 0 1 0 72 0' stroke='%23080810' stroke-width='16' fill='none' stroke-linecap='round'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

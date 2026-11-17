@@ -34,6 +34,7 @@
   </nav>
 
   <div class="topbar-right">
+    <a class="btn btn-ghost" href="app.html" style="text-decoration:none">Open app</a>
     <span class="status-pill"><i></i> Workshop online</span>
     <button class="btn btn-lime" id="openAddGame" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
@@ -274,41 +275,10 @@
   </div>
 </div>
 
-<!-- Play modal -->
-<div class="modal" id="playModal" role="dialog" aria-modal="true" aria-labelledby="playModalTitle" hidden>
-  <div class="modal-backdrop" data-close="play"></div>
-  <div class="modal-card play-modal-card">
-    <div class="play-head">
-      <div>
-        <p class="eyebrow">// now playing</p>
-        <h3 id="playModalTitle">Pulse Grid</h3>
-      </div>
-      <div class="play-hud">
-        <span class="hud-pill">SCORE <b id="gameScore">0</b></span>
-        <span class="hud-pill">BEST <b id="gameBest">0</b></span>
-        <span class="hud-pill" id="gameTimePill">TIME <b id="gameTime">30</b></span>
-      </div>
-      <button class="icon-btn modal-close" data-close="play" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <div class="play-stage" id="playStage">
-      <canvas id="gameCanvas" width="720" height="440"></canvas>
-      <div class="play-overlay" id="playOverlay">
-        <p class="eyebrow">Ready?</p>
-        <h4>Tap the glowing nodes</h4>
-        <p class="muted">Hit as many as you can in 30 seconds. Missing a node costs time.</p>
-        <button class="btn btn-lime btn-lg" id="startGameBtn" type="button">Start run</button>
-      </div>
-    </div>
-    <p class="play-foot muted">Space / click the stage · nodes fade fast, chains multiply your score.</p>
-  </div>
-</div>
-
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<script src="assets/games-data.js"></script>
 <script src="assets/app.js"></script>
-<script src="assets/game.js"></script>
 <script src="assets/architect.js"></script>
 <script src="assets/architect-ui.js"></script>
 </body>
