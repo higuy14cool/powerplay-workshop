@@ -1,5 +1,6 @@
-/* Adds an "Install app" button to a game page, and keeps it installable.
-   Shared by every game in games/<id>/ — loaded as ../_install/app-install.js */
+/* One install control for every game page — loaded as ../_install/app-install.js.
+   Registers the game's service worker, reuses the browser's install prompt, and
+   opens an install card when a play link asks for ?install=1. */
 (function () {
   "use strict";
 
@@ -7,7 +8,8 @@
     (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
     window.navigator.standalone === true;
   const wantsInstall = new URLSearchParams(location.search).has("install");
-  const title = (document.title || "This game").split("—")[0].trim();
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const title = (document.title || "This game").split(/[—|]/)[0].trim();
 
   let prompt = null;
   let host = null;
@@ -18,6 +20,13 @@
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     });
+  }
+
+  // Each game already ships its own install button (Dunkin', Hockey). Keep one control.
+  function hideNativeButtons() {
+    const css = document.createElement("style");
+    css.textContent = "#installBtn,#btnInstall,.install-btn{display:none !important}";
+    document.head.appendChild(css);
   }
 
   function style(el, css) {
@@ -52,13 +61,19 @@
       boxShadow: "0 10px 24px rgba(0,0,0,.45)",
       backdropFilter: "blur(6px)",
     });
-    button.addEventListener("click", install);
+    button.addEventListener("click", () => (prompt ? install() : showSheet()));
     host.appendChild(button);
     document.body.appendChild(host);
+    hideNativeButtons();
   }
 
-  function buildSheet() {
-    if (sheet) return sheet;
+  function closeSheet() {
+    if (sheet) sheet.remove();
+    sheet = null;
+  }
+
+  function showSheet() {
+    closeSheet();
     sheet = style(document.createElement("div"), {
       position: "fixed",
       inset: "0",
@@ -86,21 +101,49 @@
     style(h, { margin: "0 0 8px", font: "800 17px/1.25 system-ui, sans-serif", textTransform: "none" });
 
     const p = document.createElement("p");
-    p.textContent = "This browser did not offer its own install button. Add the game to your device by hand:";
+    p.textContent = prompt
+      ? "Your browser will ask you to confirm. It then opens from your home screen or desktop like any other app."
+      : isIOS
+        ? "Safari installs from its Share menu — tap Share, then “Add to Home Screen”."
+        : "This browser has not offered its install prompt yet. Tap the install icon in the address bar, or the ⋮ menu → Install app / Add to Home screen.";
     style(p, { margin: "0 0 12px", font: "400 13px/1.55 system-ui, sans-serif", color: "#b9c2d0" });
+
+    card.appendChild(h);
+    card.appendChild(p);
+
+    if (prompt) {
+      const go = document.createElement("button");
+      go.type = "button";
+      go.textContent = "Install now";
+      style(go, {
+        minHeight: "44px",
+        width: "100%",
+        border: "0",
+        borderRadius: "10px",
+        background: "#b8ff3d",
+        color: "#0a0b10",
+        font: "800 14px/1 system-ui, sans-serif",
+        textTransform: "none",
+        cursor: "pointer",
+        marginBottom: "10px",
+      });
+      go.addEventListener("click", install);
+      card.appendChild(go);
+    }
 
     const list = document.createElement("ul");
     style(list, { margin: "0 0 14px", padding: "0 0 0 18px", font: "400 13px/1.6 system-ui, sans-serif", color: "#dce3ee" });
     [
-      "Chrome / Edge (computer): click the install icon at the right of the address bar, or the ⋮ menu → Cast, save and share → Install page as app.",
+      "Chrome / Edge (computer): install icon at the right of the address bar, or ⋮ → Cast, save and share → Install page as app.",
       "Android Chrome: ⋮ menu → Add to Home screen.",
       "iPhone / iPad Safari: Share → Add to Home Screen.",
-      "It has to be served over https or from localhost — installation is blocked for files opened straight from disk.",
+      "Installation needs https or localhost — a file opened straight from disk cannot install.",
     ].forEach((t) => {
       const li = document.createElement("li");
       li.textContent = t;
       list.appendChild(li);
     });
+    card.appendChild(list);
 
     const close = document.createElement("button");
     close.type = "button";
@@ -108,21 +151,18 @@
     style(close, {
       minHeight: "44px",
       width: "100%",
-      border: "0",
+      border: "1px solid rgba(255,255,255,.2)",
       borderRadius: "10px",
-      background: "#b8ff3d",
-      color: "#0a0b10",
+      background: "transparent",
+      color: "#e9eef6",
       font: "800 14px/1 system-ui, sans-serif",
       textTransform: "none",
       cursor: "pointer",
     });
-    close.addEventListener("click", () => { sheet.remove(); sheet = null; });
-    sheet.addEventListener("click", (e) => { if (e.target === sheet) close.click(); });
-
-    card.appendChild(h);
-    card.appendChild(p);
-    card.appendChild(list);
+    close.addEventListener("click", closeSheet);
     card.appendChild(close);
+
+    sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
     sheet.appendChild(card);
     document.body.appendChild(sheet);
     return sheet;
@@ -130,7 +170,7 @@
 
   async function install() {
     if (!prompt) {
-      buildSheet();
+      showSheet();
       return;
     }
     const evt = prompt;
@@ -138,9 +178,12 @@
     try {
       evt.prompt();
       const choice = await evt.userChoice;
-      if (choice && choice.outcome === "accepted" && button) button.textContent = "✓ Installed";
+      if (choice && choice.outcome === "accepted") {
+        closeSheet();
+        if (button) button.textContent = "✓ Installed";
+      }
     } catch (e) {
-      buildSheet();
+      showSheet();
     }
   }
 
@@ -148,10 +191,12 @@
     e.preventDefault();
     prompt = e;
     build();
+    if (wantsInstall) showSheet();
   });
 
   window.addEventListener("appinstalled", () => {
     prompt = null;
+    closeSheet();
     if (button) button.textContent = "✓ Installed";
   });
 
@@ -162,6 +207,8 @@
       button.style.background = "#b8ff3d";
       button.style.color = "#0a0b10";
       button.style.border = "1px solid #b8ff3d";
+      // A play-link install lands here: offer it right away instead of making them hunt.
+      showSheet();
     }
   }
 
