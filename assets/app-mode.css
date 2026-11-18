@@ -97,7 +97,8 @@ body:not(.is-locked) .login-screen{display:none}
 .empty-note{color:var(--muted-2);font-size:13px;margin:0}
 
 .chat-col{border-left:1px solid var(--line);padding-left:22px}
-.chat-head{display:flex;flex-direction:column;gap:8px}
+.chat-head{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.new-chat-btn{align-self:flex-start;white-space:nowrap}
 .scope-chips{display:flex;flex-wrap:wrap;gap:6px}
 .scope-chip{
   padding:6px 11px;border-radius:999px;font-size:12.5px;cursor:pointer;color:var(--muted);
@@ -129,6 +130,18 @@ body:not(.is-locked) .login-screen{display:none}
 .custom-accent{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
 .custom-accent .field{flex:0 0 120px}
 .custom-accent input[type=color]{padding:4px;height:42px;cursor:pointer}
+
+/* ---------- new chat sheet ---------- */
+.new-chat-people{display:flex;flex-direction:column;gap:6px;max-height:210px;overflow:auto}
+.new-chat-person{
+  display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:11px;cursor:pointer;
+  background:#0d101a;border:1px solid var(--line);font-size:13.5px;
+}
+.new-chat-person:hover{border-color:rgba(184,255,61,.4)}
+.new-chat-person input{width:16px;height:16px;accent-color:var(--lime);cursor:pointer}
+.new-chat-person span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.new-chat-person em{font-style:normal;font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.08em}
+.new-chat-actions{display:flex;justify-content:flex-end;gap:8px}
 
 @media (max-width:860px){
   .wide-card{width:calc(100vw - 20px)}

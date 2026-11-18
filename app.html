@@ -487,6 +487,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <div class="chat-head">
           <h4 id="chatTitle">Group chat</h4>
           <div class="scope-chips" id="chatScopes"></div>
+          <button class="chip chip-outline new-chat-btn" id="newChatBtn" type="button">+ New chat</button>
         </div>
         <div class="chat-log" id="chatThread"></div>
         <form class="chat-form" id="chatForm">
@@ -499,6 +500,25 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <input id="chatPhotoInput" type="file" accept="image/*" hidden>
       </section>
     </div>
+  </div>
+</div>
+
+<!-- start a chat with several people at once -->
+<div class="modal" id="newchatModal" role="dialog" aria-modal="true" aria-labelledby="newchatTitle" hidden>
+  <div class="modal-backdrop" data-close-newchat></div>
+  <div class="modal-card format-card">
+    <p class="eyebrow">// new chat</p>
+    <h3 id="newchatTitle">Start a chat</h3>
+    <form id="newChatForm" class="stack">
+      <label class="field"><span>Name (optional)</span><input id="newChatName" maxlength="40" placeholder="e.g. ProKick build" autocomplete="off"></label>
+      <p class="hint-small">Who is in it? You are always included — pick as many as you like.</p>
+      <div class="new-chat-people" id="newChatPeople"></div>
+      <p class="form-error" id="newChatError" hidden></p>
+      <div class="new-chat-actions">
+        <button class="btn btn-ghost" type="button" data-close-newchat>Cancel</button>
+        <button class="btn btn-lime" type="submit">Create chat</button>
+      </div>
+    </form>
   </div>
 </div>
 

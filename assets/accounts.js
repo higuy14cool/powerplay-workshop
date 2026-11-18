@@ -48,6 +48,7 @@
         },
       ],
       currentUserId: null,
+      chats: [],   // named chats that several people share, made with "+ New chat"
     };
   }
 
@@ -167,6 +168,17 @@
           }
           return m;
         });
+      const known = new Set(data.users.map((u) => u.id));
+      data.chats = (Array.isArray(data.chats) ? data.chats : [])
+        .filter((c) => c && c.id && Array.isArray(c.members))
+        .map((c) => ({
+          id: String(c.id),
+          name: String(c.name || "Chat").slice(0, 40),
+          members: c.members.filter((id) => known.has(id)),
+          createdBy: c.createdBy || null,
+          at: Number(c.at) || Date.now(),
+        }))
+        .filter((c) => c.members.length);
       data.users = data.users.map((u) => ({
         assigned: Array.isArray(u.assigned) ? u.assigned : [],
         theme: u.theme || "lime",
@@ -266,6 +278,9 @@
     if (target.id === state.currentUserId) return { ok: false, error: "You can't remove yourself." };
     state.users = state.users.filter((u) => u.id !== id);
     state.messages = state.messages.filter((m) => m.from !== id && !(m.scope || "").includes(id));
+    state.chats = (state.chats || [])
+      .map((c) => ({ ...c, members: c.members.filter((m) => m !== id) }))
+      .filter((c) => c.members.length);
     gamesForStorage().forEach((g) => {
       if (g.assignedTo) g.assignedTo = g.assignedTo.filter((uid2) => uid2 !== id);
     });
@@ -365,19 +380,61 @@
     return "dm:" + [a, b].sort().join("|");
   }
 
+  /* A chat made with "+ New chat": a name and the people in it. Admins see every
+     one of them so they can keep an eye on the team; everyone else sees the chats
+     they were put in. */
+  function chatScopes(user) {
+    return (state.chats || [])
+      .filter((c) => c.members.includes(user.id) || user.role === "admin")
+      .sort((a, b) => (a.at || 0) - (b.at || 0))
+      .map((c) => ({ id: "chat:" + c.id, label: c.name, kind: "chat", chat: c }));
+  }
+
   function visibleScopes(user = current()) {
     if (!user) return [];
+    const head = [{ id: "group", label: "Group chat", kind: "group" }].concat(chatScopes(user));
     if (user.role === "admin") {
-      return [{ id: "group", label: "Group chat", kind: "group" }].concat(
+      return head.concat(
         state.users
           .filter((u) => u.role === "worker")
           .map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
       );
     }
     const admins = state.users.filter((u) => u.role === "admin");
-    return [{ id: "group", label: "Group chat", kind: "group" }].concat(
+    return head.concat(
       admins.map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
     );
+  }
+
+  /* Start a chat with a name and a set of people; you are always in it. */
+  function createChat({ name, members } = {}) {
+    const user = current();
+    if (!user) return { ok: false, error: "Sign in first." };
+    const ids = [];
+    (Array.isArray(members) ? members : []).forEach((id) => {
+      if (state.users.some((u) => u.id === id) && !ids.includes(id)) ids.push(id);
+    });
+    if (!ids.includes(user.id)) ids.push(user.id);
+    if (ids.length < 2) return { ok: false, error: "Pick at least one person to chat with." };
+    const names = ids
+      .map((id) => (state.users.find((u) => u.id === id) || {}).username)
+      .filter(Boolean);
+    const chat = {
+      id: uid("c"),
+      name: String(name || "").trim().slice(0, 40) || names.slice(0, 3).join(", "),
+      members: ids,
+      createdBy: user.id,
+      at: Date.now(),
+    };
+    if (!Array.isArray(state.chats)) state.chats = [];
+    state.chats.push(chat);
+    save();
+    return { ok: true, chat, scope: "chat:" + chat.id };
+  }
+
+  function chatFor(scopeId) {
+    const id = String(scopeId || "").replace(/^chat:/, "");
+    return (state.chats || []).find((c) => c.id === id) || null;
   }
 
   function canSeeScope(scopeId, user = current()) {
@@ -525,6 +582,8 @@
     login,
     logout,
     visibleScopes,
+    createChat,
+    chatFor,
     canSeeScope,
     messages,
     sendMessage,

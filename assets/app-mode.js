@@ -420,7 +420,7 @@
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "scope-chip" + (scope.id === state.scope ? " is-active" : "");
-      btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.label;
+      btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.kind === "chat" ? `# ${scope.label}` : scope.label;
       btn.addEventListener("click", () => {
         state.scope = scope.id;
         state.editingId = null;
@@ -583,13 +583,13 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "format-opt";
-        btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.label;
+        btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.kind === "chat" ? `# ${scope.label}` : scope.label;
         btn.addEventListener("click", () => {
           const res = A.forwardMessage(id, scope.id);
           closeModal("forward");
           if (!res.ok) return toast(res.error, "err");
           if (state.scope === scope.id) renderChat();
-          toast(`Forwarded to ${scope.kind === "dm" ? scope.label : scope.label}`, "ok");
+          toast(`Forwarded to ${scope.kind === "dm" ? scope.label : scope.kind === "chat" ? "#" + scope.label : scope.label}`, "ok");
         });
         list.appendChild(btn);
       });
@@ -597,6 +597,54 @@
       list.innerHTML = '<p class="empty-note">There is nowhere else to forward it yet.</p>';
     }
     openModal("forward");
+  }
+
+  /* ---------- a new chat, with as many people as you like ---------- */
+  function openNewChat() {
+    const me = A.current();
+    if (!me) return;
+    const box = $("#newChatPeople");
+    const error = $("#newChatError");
+    if (error) error.hidden = true;
+    if ($("#newChatName")) $("#newChatName").value = "";
+    if (box) {
+      box.innerHTML = "";
+      const others = A.users().filter((u) => u.id !== me.id);
+      if (!others.length) {
+        box.innerHTML = '<p class="empty-note">Add a person first — then you can put them in a chat.</p>';
+      }
+      others.forEach((u) => {
+        const label = document.createElement("label");
+        label.className = "new-chat-person";
+        const tick = document.createElement("input");
+        tick.type = "checkbox";
+        tick.value = u.id;
+        const name = document.createElement("span");
+        name.textContent = u.username;
+        const role = document.createElement("em");
+        role.textContent = A.ROLE_LABEL[u.role] || u.role;
+        label.append(tick, name, role);
+        box.appendChild(label);
+      });
+    }
+    openModal("newchat");
+  }
+
+  function onCreateChat(event) {
+    event.preventDefault();
+    const box = $("#newChatPeople");
+    const error = $("#newChatError");
+    const checked = box ? Array.from(box.querySelectorAll("input:checked")).map((i) => i.value) : [];
+    const res = A.createChat({ name: $("#newChatName") ? $("#newChatName").value : "", members: checked });
+    if (!res.ok) {
+      if (error) { error.textContent = res.error; error.hidden = false; }
+      return;
+    }
+    closeModal("newchat");
+    state.scope = res.scope;
+    state.editingId = null;
+    renderChat();
+    toast(`Chat “${res.chat.name}” started`, "ok");
   }
 
   /* ---------- pictures ---------- */
@@ -798,6 +846,9 @@
       });
     }
     $$("[data-close-forward]").forEach((el) => el.addEventListener("click", () => closeModal("forward")));
+    $("#newChatBtn").addEventListener("click", openNewChat);
+    $("#newChatForm").addEventListener("submit", onCreateChat);
+    $$("[data-close-newchat]").forEach((el) => el.addEventListener("click", () => closeModal("newchat")));
     $("#personForm").addEventListener("submit", onPersonSubmit);
     $("#accountsFile").addEventListener("click", downloadAccountFile);
     $("#accountsRestore").addEventListener("click", () => $("#accountsRestoreInput").click());
