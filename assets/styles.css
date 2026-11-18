@@ -642,3 +642,14 @@ a.btn{text-decoration:none}
   line-height: 1.5;
   color: var(--muted, #8b93a3);
 }
+
+/* ---------- the Architect's real AI ---------- */
+.ai-engine{cursor:pointer;font-family:var(--mono);transition:border-color .2s,background .2s,color .2s}
+.ai-engine:hover{border-color:rgba(184,255,61,.55);color:#eaffc7}
+.ai-engine:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.ai-card{max-width:520px}
+.ai-card .field{margin-bottom:10px}
+.typing-note{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.04em}
+.plan-summary{white-space:pre-wrap;line-height:1.62;font-size:13.5px;color:#cfd4e2}
+.plan-summary b{color:#fff}
+.plan-summary code{font-family:var(--mono);font-size:12px;background:rgba(255,255,255,.07);padding:1px 5px;border-radius:5px}

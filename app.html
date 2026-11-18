@@ -154,7 +154,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <p class="eyebrow">// 02 — app architect</p>
         <h2>Describe it. We'll architect it.</h2>
       </div>
-      <span class="ai-badge"><i></i> Local AI · no keys needed</span>
+      <button class="ai-badge ai-engine" id="aiEngine" type="button"><i></i> <span id="aiEngineLabel">Real AI</span></button>
     </div>
 
     <div class="architect-grid">
@@ -348,6 +348,37 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   </div>
 </div>
 
+<div class="modal" id="aiModal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle" hidden>
+  <div class="modal-backdrop" data-close="ai"></div>
+  <div class="modal-card ai-card">
+    <p class="eyebrow">// the brain</p>
+    <h3 id="aiModalTitle">Which AI builds for you?</h3>
+    <p class="confirm-text">The Architect now really builds what you ask. The free hosted AI needs no key and works right away; use your own key for a bigger model. A key you type here stays in this browser and is never uploaded to the site.</p>
+    <label class="field"><span>AI</span>
+      <select id="aiProvider">
+        <option value="free">Free hosted AI (no key)</option>
+        <option value="openai">OpenAI (your key)</option>
+        <option value="openrouter">OpenRouter (your key)</option>
+        <option value="custom">My own server (OpenAI-compatible)</option>
+      </select>
+    </label>
+    <label class="field" id="aiKeyRow"><span>API key</span>
+      <input id="aiKey" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="sk-…">
+    </label>
+    <label class="field"><span>Model</span>
+      <input id="aiModel" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+    </label>
+    <label class="field" id="aiBaseRow" hidden><span>Address</span>
+      <input id="aiBase" type="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://your-server/v1/chat/completions">
+    </label>
+    <p class="hint-small" id="aiState"></p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" type="button" id="aiTest">Test it</button>
+      <button class="btn btn-lime" type="button" id="aiSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle" hidden>
   <div class="modal-backdrop" data-close="reset"></div>
   <div class="modal-card confirm-card">
@@ -487,7 +518,8 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 <script src="assets/app.js"></script>
 <script src="assets/architect.js"></script>
 <script src="assets/architect-chats.js"></script>
-<script src="assets/architect-ui.js"></script>
+<script src="assets/ai.js"></script>
+  <script src="assets/architect-ui.js"></script>
 <script src="assets/accounts-data.js"></script>
 <script src="assets/accounts.js"></script>
 <script src="assets/app-mode.js"></script>

@@ -813,6 +813,7 @@ render();
   let busy = false;
   let restoring = false;
   let editingGame = null;
+  let convo = [];
   const saveBtn = $("#saveToGame");
   const saveNewBtn = $("#saveAsNew");
 
@@ -887,6 +888,10 @@ render();
     if (!restoring && window.PowerplayChats) {
       window.PowerplayChats.record(role === "me" ? "me" : "ai", text);
     }
+    if (!restoring) {
+      convo.push({ role: role === "me" ? "user" : "assistant", content: text });
+      if (convo.length > 12) convo = convo.slice(-12);
+    }
     return wrap;
   }
 
@@ -926,7 +931,8 @@ render();
     $("#codeFilename").textContent = plan.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".html";
     $("#previewUrl").textContent = "localhost/" + $("#codeFilename").textContent;
 
-    planView.innerHTML = `
+    const parts = [];
+    parts.push(`
       <div class="plan">
         <div class="plan-top">
           <div class="plan-icon">${plan.archetype.icon}</div>
@@ -934,31 +940,44 @@ render();
             <h3>${escapeHtml(plan.name)}</h3>
             <p class="plan-sub">${escapeHtml(plan.tagline)}</p>
           </div>
-        </div>
+        </div>`);
 
+    if (plan.summary) {
+      parts.push(`<div class="plan-section plan-summary">${formatMessage(plan.summary)}</div>`);
+    }
+    if (plan.features && plan.features.length) {
+      parts.push(`
         <div class="plan-section">
           <h4>Core features</h4>
           <ul>${plan.features.map((f) => `<li>${escapeHtml(f)}</li>`).join("")}</ul>
-        </div>
-
+        </div>`);
+    }
+    if (plan.screens && plan.screens.length) {
+      parts.push(`
         <div class="plan-section">
           <h4>Screens</h4>
-          <div class="screens">${plan.screens.map((s) => `<span class="screen-pill">${escapeHtml(s)}</span>`).join("")}</div>
-        </div>
-
+          <div class="screens">${plan.screens.map((x) => `<span class="screen-pill">${escapeHtml(x)}</span>`).join("")}</div>
+        </div>`);
+    }
+    if (plan.stack && plan.stack.length) {
+      parts.push(`
         <div class="plan-section">
           <h4>Stack</h4>
-          <div class="stack-row">${plan.stack.map((s) => `<span class="stack-pill">${escapeHtml(s)}</span>`).join("")}</div>
-        </div>
-
+          <div class="stack-row">${plan.stack.map((x) => `<span class="stack-pill">${escapeHtml(x)}</span>`).join("")}</div>
+        </div>`);
+    }
+    if (plan.data && plan.data.length) {
+      parts.push(`
         <div class="plan-section">
           <h4>Data model</h4>
           <table class="data-table">
             <thead><tr><th>entity</th><th>fields</th></tr></thead>
             <tbody>${plan.data.map(([n, f]) => `<tr><td>${escapeHtml(n)}</td><td>${escapeHtml(f)}</td></tr>`).join("")}</tbody>
           </table>
-        </div>
-
+        </div>`);
+    }
+    if (plan.steps && plan.steps.length) {
+      parts.push(`
         <div class="plan-section">
           <h4>Build order</h4>
           <div class="steps">
@@ -968,13 +987,19 @@ render();
                 <p><b>${escapeHtml(title)}</b>${escapeHtml(body)}</p>
               </div>`).join("")}
           </div>
-        </div>
+        </div>`);
+    }
 
+    if (plan.code) {
+      parts.push(`
         <div class="plan-actions">
-          <button class="btn btn-lime btn-tiny" data-goto="code" type="button">View starter code</button>
+          <button class="btn btn-lime btn-tiny" data-goto="code" type="button">View the code</button>
           <button class="btn btn-ghost btn-tiny" data-goto="preview" type="button">Run it</button>
-        </div>
-      </div>`;
+        </div>`);
+    }
+
+    parts.push(`</div>`);
+    planView.innerHTML = parts.join("");
 
     planView.querySelectorAll("[data-goto]").forEach((b) => {
       b.addEventListener("click", () => switchTab(b.dataset.goto));
@@ -1176,6 +1201,198 @@ render();
     autoGrow();
     showTyping();
 
+    // A real model builds what was asked; the template planner is only the fallback.
+    if (window.PowerplayAI && window.PowerplayAI.ready()) {
+      respondWithAI(trimmed);
+      return;
+    }
+    respondOffline(trimmed);
+  }
+
+  /* ---------- the real AI: it does what you ask ---------- */
+
+  const AI_RULES = [
+    "You are the Architect inside POWERPLAY Workshop, the user's own app and game workshop.",
+    "The user is the boss. Do exactly what they ask.",
+    "Never replace their idea with a different app, never hand back a template because their wording was unfamiliar, and never say you cannot build something. Build the closest real, working version and say in one line what you left out.",
+    "If the request is ambiguous, take the most likely reading and name it in one short line.",
+    "If they ask a question or how something works, answer it plainly in 2-4 short paragraphs, no code.",
+    "If they ask to change an app or game whose file is given below, return the COMPLETE updated file: keep every feature that already worked, change only what they asked for, keep its name in <title> and <h1>.",
+    "When you build: open with 2-4 sentences saying what the app does and how to use or play it, then exactly one ```html fence holding one complete file. Everything inline (style and script), no CDN, no imports, no external images or fonts, no build step: it must run by opening the file.",
+    "Give it real working controls for keyboard, mouse and touch, a score or result the player can see, and a restart. Use no library unless the user asks for one.",
+    "Make it look deliberate: a dark or bright palette of its own, readable type, and a layout that still works on a phone.",
+    "Keep it compact: aim for under 250 lines, because one answer has a hard length limit. A short complete app beats a long truncated one."
+  ].join("\n");
+
+  const CODE_LIMIT = 40000; // bigger files are described, not sent
+
+  // An answer cut off at the token limit has no closing fence, so take everything
+  // after the opening one; a bare file with no fence at all is kept too.
+  function fenceCode(text) {
+    const src = String(text);
+    const blocks = Array.from(src.matchAll(/```[a-zA-Z]*\s*\n([\s\S]*?)```/g)).map((m) => m[1]);
+    const html = blocks.filter((b) => /<html|<!doctype|<body|<canvas|<script|<div/i.test(b));
+    const pick = (html.length ? html : blocks).pop();
+    if (pick && pick.trim()) return pick.trim();
+    const open = src.match(/```[a-zA-Z]*\n([\s\S]*)$/);
+    if (open && /<html|<!doctype|<body|<canvas|<script|<div/i.test(open[1])) return open[1].trim();
+    if (/^\s*(<!doctype html|<html)/i.test(src)) return src.trim();
+    return "";
+  }
+
+  const looksWhole = (code) => /<\/html>/i.test(code);
+
+  function proseOnly(text) {
+    return String(text).replace(/```[\s\S]*?```/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function titleFrom(code, prompt) {
+    const m = code.match(/<title[^>]*>([^<]{2,70})<\/title>/i) || code.match(/<h1[^>]*>([^<]{2,70})<\/h1>/i);
+    if (m) return m[1].trim();
+    const words = prompt.replace(/^(please\s+)?(make|build|create|give me|i want|can you make)\s+(me\s+)?(a|an|the)?\s*/i, "").trim();
+    const clean = words.split(/\s+/).slice(0, 5).join(" ").replace(/[^\w\s'&-]/g, "");
+    return clean ? clean[0].toUpperCase() + clean.slice(1) : "New app";
+  }
+
+  function aiPlan(text, prompt) {
+    const code = fenceCode(text);
+    const prose = proseOnly(text);
+    const lines = prose.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const features = lines
+      .filter((l) => /^([-*•]|\d+[.)])\s+/.test(l))
+      .map((l) => l.replace(/^([-*•]|\d+[.)])\s+/, "").replace(/\*\*/g, "").trim())
+      .slice(0, 8);
+    const first = lines.find((l) => !/^#{1,6}\s/.test(l)) || "";
+    let name = editingGame ? editingGame.title : titleFrom(code, prompt);
+    let outCode = code;
+    if (editingGame) {
+      const t = escapeHtml(editingGame.title);
+      outCode = outCode
+        .replace(/<title>[^<]*<\/title>/, `<title>${t}</title>`)
+        .replace(/<h1([^>]*)>[^<]*<\/h1>/, `<h1$1>${t}</h1>`);
+    }
+    return {
+      name: name,
+      tagline: (first || "Built from your words").replace(/^#+\s*/, "").slice(0, 150),
+      summary: prose,
+      features: features,
+      screens: [],
+      stack: [],
+      data: [],
+      steps: [],
+      mentions: [],
+      archetype: { id: "ai", icon: "✦", name: "AI build", tagline: "built by the AI from your request" },
+      code: outCode
+    };
+  }
+
+  async function currentGameCode(game) {
+    if (game && game.build) return { code: String(game.build), fresh: false };
+    const path = game && (game.playUrl || game.path || ("games/" + game.id + "/index.html"));
+    try {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) return null;
+      return { code: await res.text(), fresh: true };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // The free host caps one answer at roughly 1,500 tokens (~5,500 characters),
+  // so a big file is asked for as a compact version instead of a full copy.
+  const COMPACT_ABOVE = 2400;
+
+  function contextForEditing(game, file) {
+    const head = `Change this app: **${game.title}** (${game.genre || "game"}${game.tagline ? ", " + game.tagline : ""}).`;
+    const small = file && file.code && file.code.length <= COMPACT_ABOVE;
+    if (small) {
+      return head + "\n\nIts current file is below. Return the COMPLETE updated file with the same name, keeping every feature that already works.\n\n```html\n" + file.code + "\n```";
+    }
+    const size = file && file.code ? `${Math.round(file.code.length / 1000)} KB of engine code` : "engine code I cannot load";
+    return head + `\n\nThe answer limit here is about 1,500 tokens, so do NOT reproduce its ${size}. Build ONE complete compact file instead (under 220 lines, everything inline, same name in <title> and <h1>) that keeps the same game, adds what I asked for, and really runs. Say in one line what you simplified.`;
+  }
+
+  async function respondWithAI(trimmed) {
+    // Workers only edit assigned games; they cannot add games to the library.
+    const blocked = workerBlock(editingGame);
+    if (blocked) {
+      hideTyping();
+      addMessage("ai", blocked);
+      busy = false;
+      return;
+    }
+
+    const started = Date.now();
+    const ticker = setInterval(() => {
+      const row = $("#typingRow");
+      if (!row) return;
+      let note = row.querySelector(".typing-note");
+      if (!note) {
+        note = document.createElement("span");
+        note.className = "typing-note";
+        const b = row.querySelector(".bubble");
+        if (b) b.appendChild(note);
+      }
+      note.textContent = " " + Math.round((Date.now() - started) / 1000) + "s";
+    }, 1000);
+
+    try {
+      const file = editingGame ? await currentGameCode(editingGame) : null;
+      const messages = [{ role: "system", content: AI_RULES }]
+        .concat(convo.slice(-8).map((m) => ({
+          role: m.role,
+          content: m.role === "assistant" ? String(m.content).slice(0, 1500) : String(m.content)
+        })));
+      if (editingGame) messages.push({ role: "user", content: contextForEditing(editingGame, file) });
+
+      let out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
+      let plan = aiPlan(out.text, trimmed);
+
+      // A cut-off answer is asked for again as a compact file that fits the limit.
+      if (plan.code && (out.truncated || !looksWhole(plan.code))) {
+        messages.push({ role: "assistant", content: String(out.text).slice(0, 3000) });
+        messages.push({
+          role: "user",
+          content: "That answer was cut off by the length limit. Return ONE complete file that fits: the same app in under 200 lines, no comments, everything inline, ending with </html>."
+        });
+        out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
+        const second = aiPlan(out.text, trimmed);
+        if (second.code && (looksWhole(second.code) || !looksWhole(plan.code))) plan = second;
+      }
+
+      clearInterval(ticker);
+      hideTyping();
+      const cut = !!plan.code && !looksWhole(plan.code);
+
+      if (plan.code) {
+        renderPlan(plan);
+        switchTab("code");
+        const saveNote = editingGame
+          ? `**Save to ${editingGame.title}** puts it straight into the game; *Restore original* brings the old version back.`
+          : "Press **Save as new game** to put it in your library with its own play link.";
+        addMessage(
+          "ai",
+          `**${plan.name}** is built.\n\n` + (plan.summary ? plan.summary + "\n\n" : "") +
+            `Made by ${out.engine || window.PowerplayAI.label()}. ` + saveNote +
+            (cut ? "\n\n⚠ The answer hit this AI's length limit and is the compact version. Add your own key in AI settings for full-size files." : "")
+        );
+        if (window.PowerplayApp) window.PowerplayApp.toast(cut ? "Built a compact version — see the Code tab." : "Built it — check the Code tab.", "ok");
+      } else {
+        addMessage("ai", out.text.trim());
+      }
+      busy = false;
+    } catch (err) {
+      clearInterval(ticker);
+      hideTyping();
+      addMessage(
+        "ai",
+        `**The AI could not answer.** ${err && err.message ? err.message : "Unknown error."}\n\nI'm falling back to the offline builder so you still get something — and the AI settings (the chip at the top of this panel) let you switch engines.`
+      );
+      respondOffline(trimmed);
+    }
+  }
+
+  function respondOffline(trimmed) {
     const delay = 520 + Math.min(trimmed.length * 8, 620);
 
     setTimeout(() => {
@@ -1255,6 +1472,7 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
 
   function resetChat() {
     chatLog.innerHTML = "";
+    convo = [];
     if (window.PowerplayChats) window.PowerplayChats.startNew();
     current = null;
     setEditingGame(null);
@@ -1422,8 +1640,96 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     chatLog.innerHTML = "";
     current = null;
     chat.messages.forEach((m) => addMessage(m.role, m.text));
+    convo = chat.messages.map((m) => ({ role: m.role === "me" ? "user" : "assistant", content: m.text }));
     restoring = false;
     if (chat.plan) renderPlan(chat.plan, true);
+  }
+
+  /* ---------- AI settings: which model builds for you ---------- */
+  function paintEngine() {
+    const el = $("#aiEngineLabel");
+    const AI = window.PowerplayAI;
+    if (!el || !AI) return;
+    el.textContent = AI.ready() ? "Real AI · " + AI.label() : "AI not set up";
+    const chip = $("#aiEngine");
+    if (chip) chip.title = AI.ready()
+      ? "Built by " + AI.label() + " — click to change it"
+      : "Click to choose which AI builds for you";
+  }
+
+  function fillAiForm() {
+    const AI = window.PowerplayAI;
+    if (!AI) return;
+    const s = AI.settings();
+    $("#aiProvider").value = s.provider;
+    $("#aiKey").value = s.key;
+    $("#aiModel").value = s.model;
+    $("#aiBase").value = s.provider === "free" ? "" : s.baseUrl;
+    syncAiRows();
+    $("#aiState").textContent = AI.ready()
+      ? "In use now: " + AI.label() + ". Your key never leaves this browser."
+      : "No AI is set up. Pick one above.";
+  }
+
+  // The free engine needs no key; the others need a key and, for "custom", an address.
+  function syncAiRows() {
+    const provider = $("#aiProvider").value;
+    $("#aiKeyRow").hidden = provider === "free";
+    $("#aiBaseRow").hidden = provider !== "custom";
+    const preset = window.PowerplayAI ? window.PowerplayAI.PRESETS[provider] : null;
+    if (preset) {
+      $("#aiModel").placeholder = preset.model || "model name";
+      $("#aiBase").placeholder = preset.baseUrl || "https://your-server/v1/chat/completions";
+    }
+  }
+
+  function readAiForm() {
+    const provider = $("#aiProvider").value;
+    const preset = window.PowerplayAI.PRESETS[provider] || {};
+    return {
+      provider: provider,
+      key: $("#aiKey").value.trim(),
+      model: $("#aiModel").value.trim() || preset.model || "",
+      baseUrl: provider === "custom" ? $("#aiBase").value.trim() : (preset.baseUrl || "")
+    };
+  }
+
+  function bindAiSettings() {
+    if (!$("#aiEngine")) return;
+    $("#aiEngine").addEventListener("click", () => {
+      fillAiForm();
+      window.PowerplayApp.openModal("ai");
+    });
+    $("#aiProvider").addEventListener("change", () => {
+      const preset = window.PowerplayAI.PRESETS[$("#aiProvider").value] || {};
+      $("#aiModel").value = preset.model || "";
+      $("#aiBase").value = $("#aiProvider").value === "custom" ? "" : (preset.baseUrl || "");
+      syncAiRows();
+    });
+    $("#aiSave").addEventListener("click", () => {
+      window.PowerplayAI.saveSettings(readAiForm());
+      paintEngine();
+      $("#aiState").textContent = window.PowerplayAI.ready()
+        ? "Saved. " + window.PowerplayAI.label() + " builds from now on."
+        : "Saved, but that needs a key before it can build.";
+      if (window.PowerplayApp) window.PowerplayApp.toast("AI settings saved.");
+    });
+    $("#aiTest").addEventListener("click", async () => {
+      const btn = $("#aiTest");
+      btn.disabled = true;
+      $("#aiState").textContent = "Testing…";
+      try {
+        const out = await window.PowerplayAI.test(readAiForm());
+        $("#aiState").textContent = out.ok
+          ? "It answered: " + out.engine + " is ready."
+          : "It answered, but not with the test word. It is probably still fine.";
+      } catch (err) {
+        $("#aiState").textContent = err && err.message ? err.message : "That did not work.";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    paintEngine();
   }
 
   if (window.PowerplayChats) window.PowerplayChats.onOpen(restoreSession);
@@ -1439,4 +1745,5 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     );
   }
   if (window.PowerplayChats) window.PowerplayChats.render();
+  bindAiSettings();
 })();
