@@ -787,14 +787,14 @@ render();
 
     return {
       archetype,
-      name: customName || archetype.name,
+      name: customName || (archetype.titleFor ? archetype.titleFor(prompt) : archetype.name),
       tagline: customName ? `Your take on ${archetype.tagline.toLowerCase()}` : archetype.tagline,
       features,
       screens: archetype.screens,
       stack,
       data: archetype.data,
       steps: archetype.steps,
-      code: archetype.html(),
+      code: archetype.html(prompt),
       mentions: mentioned,
     };
   }
@@ -829,7 +829,7 @@ render();
   // A prompt that names a game type gets that build; otherwise the arcade loop.
   function pickGameArchetype(prompt) {
     const a = detect(prompt);
-    return a && ["shooter", "runner", "memory", "sports"].includes(a.id) ? a : null;
+    return a && ["shooter", "runner", "memory", "sports", "quiz"].includes(a.id) ? a : null;
   }
 
   // Editing keeps the game's own shape: a sports game stays a sports game.
@@ -1023,11 +1023,12 @@ render();
         plan.name = editingGame.title;
         plan.code = plan.code
           .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
-          .replace(/<h1>[^<]*<\/h1>/, `<h1>${title}</h1>`);
+          .replace(/<h1([^>]*)>[^<]*<\/h1>/, `<h1$1>${title}</h1>`)
+          .replace(/var TOPIC = "[^"]*";/, `var TOPIC = ${JSON.stringify(editingGame.title)};`);
       }
       renderPlan(plan);
       // Games land on the code tab, where Save to game / Save as new game live.
-      const isGamePlan = ["game", "shooter", "runner", "memory", "sports"].includes(plan.archetype.id);
+      const isGamePlan = ["game", "shooter", "runner", "memory", "sports", "quiz"].includes(plan.archetype.id);
       switchTab(editingGame || isGamePlan ? "code" : "plan");
 
       const stackNote = plan.mentions.length
@@ -1036,6 +1037,16 @@ render();
       const featureNote = /login|auth|account/.test(trimmed.toLowerCase())
         ? " Auth is listed as a follow-up — get the core loop right first."
         : "";
+      let quizNote = "";
+      if (plan.archetype.id === "quiz") {
+        const askingMath = /math|maths|arithmetic|addition|subtraction|multiplication|division|times table|plus|minus|fraction/.test(trimmed.toLowerCase());
+        const written = (trimmed.match(/[^?=;\n]{3,90}\?\s*=\s*[^;=\n]{1,60}/g) || []).length;
+        quizNote = askingMath
+          ? "\n\nIt really is a math quiz: ten arithmetic questions are generated on the spot (the numbers get bigger from question 7), four choices each, instant right/wrong feedback, a score and a replay. Nothing in it is filler."
+          : written
+            ? `\n\nI put your ${written} question${written === 1 ? "" : "s"} into the deck exactly as you wrote ${written === 1 ? "it" : "them"} and generated the wrong choices around ${written === 1 ? "it" : "them"}.`
+            : "\n\nThe engine is built, but your message did not include the actual questions, and I will not invent facts for you. Type them into **Add a question** on the page, or write them in the prompt as `Capital of France? = Paris` and they go straight into the deck.";
+      }
 
       addMessage(
         "ai",
@@ -1043,7 +1054,7 @@ render();
           ? `Here is a **${plan.archetype.name}** build for **${plan.name}** — ${plan.archetype.tagline.toLowerCase()}
 
 It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${plan.name} is a ${editingGame.genre} game and your wording did not name a game shape I know` : `your wording asked for that shape`}; if you meant a different shape, name it (“a space shooter”, “an endless runner”, “a memory game”, “a sports match”).\n\nBe clear about what this is: it is a fresh, self-contained game in the same shape, not a patch of your original ${plan.name} file — the Architect has no model behind it, so it cannot rewrite your Three.js code. **Save as new game** keeps ${plan.name} untouched; **Save to ${plan.name}** swaps its playable build for this one, and *Restore original* puts the shipped version back.`
-          : `Locked the blueprint for **${plan.name}** — ${plan.features.length} features, ${plan.screens.length} screens, and a working starter.${stackNote}${featureNote}\n\nThe **Plan** tab has the build order; **Code** has the full HTML file; **Preview** runs it right here. Want me to break down any step or add something like auth or saving?`
+          : `Locked the blueprint for **${plan.name}** — ${plan.features.length} features, ${plan.screens.length} screens, and a working starter.${stackNote}${featureNote}${quizNote}\n\nThe **Plan** tab has the build order; **Code** has the full HTML file; **Preview** runs it right here. Want me to break down any step or add something like auth or saving?`
       );
       busy = false;
     }, delay);

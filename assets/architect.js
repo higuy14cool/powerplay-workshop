@@ -58,6 +58,23 @@ ${script}
 </html>`;
   }
 
+  /* ---------- quiz topic ---------- */
+  function quizTopic(prompt) {
+    const text = String(prompt || "");
+    const lower = text.toLowerCase();
+    const math = /math|maths|arithmetic|addition|subtraction|multiplication|division|times table|times tables|plus|minus|fraction/.test(lower);
+    const about = text.match(/(?:quiz|test)\s+(?:about|on|of)\s+([a-z0-9 &'+-]{2,40})/i);
+    const subject = text.match(/\b(?:a|an|the)\s+([a-z0-9 &'+-]{2,28}?)\s+(?:quiz|trivia)\b/i);
+    let topic = (about && about[1]) || (subject && subject[1]) || (math ? "math" : "quiz");
+    topic = topic.replace(/(?:quiz|trivia|app|game)$/i, "").replace(/\s+/g, " ").trim() || (math ? "math" : "quiz");
+    return topic.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1));
+  }
+
+  function quizTitle(prompt) {
+    const topic = quizTopic(prompt);
+    return topic.toLowerCase() === "quiz" ? "Quiz" : topic + " Quiz";
+  }
+
   /* ---------- archetypes ---------- */
   const ARCHETYPES = [
     {
@@ -195,69 +212,202 @@ render();
       },
     },
     {
-      id: "quiz",
-      match: ["quiz", "flashcard", "study", "learn", "exam", "trivia", "school"],
-      icon: "?",
-      name: "Quizloop",
-      tagline: "A quiz engine with instant feedback and a final score.",
-      features: [
-        "Multiple-choice questions with one correct answer",
-        "Instant colour feedback on every answer",
-        "Progress tracker and final score screen",
-        "Replay without a page refresh",
-      ],
-      screens: ["Question", "Feedback", "Results"],
-      stack: ["HTML", "CSS", "Vanilla JS"],
-      data: [["questions", "prompt, options[], answerIndex"], ["progress", "current index, score"]],
-      steps: [
-        ["Write five questions", "Hard-code a small set so the loop is testable."],
-        ["Render one at a time", "Track the current question index."],
-        ["Grade an answer", "Compare against answerIndex, then advance."],
-        ["Add the result screen", "Show score out of total with a replay."],
-      ],
-      html() {
-        const script = `
-var questions = [
-  {q:"What does CSS stand for?",o:["Cascading Style Sheets","Creative Style System","Computer Styled Sections"],a:0},
-  {q:"Which tag loads JavaScript?",o:["<js>","<script>","<code>"],a:1},
-  {q:"What is 7 x 8?",o:["54","58","56"],a:2},
-  {q:"Which one stores key-value data in the browser?",o:["localStorage","canvas","fetch"],a:0}
-];
-var i = 0, score = 0, locked = false;
-var stage = document.getElementById("stage");
-function render(){
-  if(i >= questions.length){ return end(); }
-  var q = questions[i];
-  stage.innerHTML = '<p class="sub">Question '+(i+1)+' of '+questions.length+' · score '+score+'</p><h2 style="font-size:18px;margin:0 0 14px">'+q.q+'</h2>';
-  q.o.forEach(function(opt,idx){
-    var b = document.createElement("button");
-    b.textContent = opt;
-    b.style.cssText = "display:block;width:100%;text-align:left;margin-bottom:8px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:#0a0d15;color:#eef1f6;cursor:pointer;font:inherit";
-    b.onclick = function(){ answer(idx, b); };
-    stage.appendChild(b);
+    id: "quiz",
+    match: [
+      "quiz", "trivia", "math", "maths", "arithmetic", "addition", "subtraction",
+      "multiplication", "division", "times table", "times tables", "flashcard",
+      "multiple choice", "study", "exam", "school",
+    ],
+    icon: "✎",
+    name: "Quizdeck",
+    tagline: "Ten questions, four choices, a score and a replay button.",
+    features: [
+      "A deck of questions, each with four choices",
+      "Right/wrong feedback the moment a choice is picked",
+      "Running score and a final result screen with replay",
+      "Add your own questions from the page itself",
+    ],
+    screens: ["Rules", "Question", "Result"],
+    stack: ["HTML", "CSS", "Vanilla JS"],
+    data: [["question", "string"], ["answer", "string"], ["choices", "string[]"], ["score", "number"]],
+    steps: [
+      ["Write the deck", "Every question carries its answer plus three wrong choices."],
+      ["One card at a time", "Show a single question with four answer buttons."],
+      ["Score it", "Mark the pick immediately and keep the running total."],
+      ["Finish and replay", "Show the final score and start a fresh deck."],
+    ],
+    titleFor(prompt) {
+      return quizTitle(prompt);
+    },
+    html(prompt) {
+      const text = String(prompt || "");
+      const lower = text.toLowerCase();
+      const isMath = /math|maths|arithmetic|addition|subtraction|multiplication|division|times table|times tables|plus|minus|fraction|sum\b/.test(lower);
+      let ops = ["add", "sub", "mul"];
+      if (/subtract|minus|take away/.test(lower)) ops = ["sub"];
+      else if (/times table|multiplication|multiply/.test(lower)) ops = ["mul"];
+      else if (/division|divide/.test(lower)) ops = ["div"];
+      else if (/addition|plus|sum\b/.test(lower)) ops = ["add"];
+      const heading = quizTitle(text);
+
+      // Questions written into the prompt itself: "Capital of France? = Paris; 7 x 8? = 56"
+      const bank = [];
+      const pairs = /([^?=;\n]{3,90}\?)\s*=\s*([^;=\n]{1,60})/g;
+      let m;
+      while ((m = pairs.exec(text))) bank.push([m[1].trim(), m[2].trim()]);
+
+      const script = `
+var MODE = ${JSON.stringify(isMath ? "math" : "bank")};
+var OPS = ${JSON.stringify(ops)};
+var TOPIC = ${JSON.stringify(heading)};
+var BANK = ${JSON.stringify(bank)};
+var deck = [], idx = 0, score = 0, locked = false;
+var $ = function (id) { return document.getElementById(id); };
+function rnd(n) { return Math.floor(Math.random() * n); }
+function shuffle(a) {
+  for (var j = a.length - 1; j > 0; j--) { var k = rnd(j + 1), t = a[j]; a[j] = a[k]; a[k] = t; }
+  return a;
+}
+function mathQuestion(level) {
+  var op = OPS[rnd(OPS.length)], a, b, ans, sum;
+  var top = level ? 60 : 20;
+  if (op === "add") { a = 2 + rnd(top); b = 2 + rnd(top); ans = a + b; sum = a + " + " + b + " = ?"; }
+  else if (op === "sub") { a = 5 + rnd(top); b = 1 + rnd(a - 1); ans = a - b; sum = a + " \\u2212 " + b + " = ?"; }
+  else if (op === "mul") { a = 2 + rnd(11); b = 2 + rnd(11); ans = a * b; sum = a + " \\u00d7 " + b + " = ?"; }
+  else { b = 2 + rnd(11); ans = 2 + rnd(11); a = b * ans; sum = a + " \\u00f7 " + b + " = ?"; }
+  return { q: sum, a: String(ans), numeric: true };
+}
+function wrongOnes(answer, numeric, pool) {
+  var out = [], used = {}, i;
+  used[String(answer)] = true;
+  if (numeric) {
+    var v = Number(answer), span = Math.max(3, Math.round(Math.abs(v) * 0.25) + 3);
+    while (out.length < 3) {
+      var d = v + (rnd(2) ? 1 : -1) * (1 + rnd(span));
+      if (d < 0) d = Math.abs(d) + 1;
+      if (used[String(d)]) continue;
+      used[String(d)] = true; out.push(String(d));
+    }
+    return out;
+  }
+  for (i = 0; i < pool.length && out.length < 3; i++) {
+    if (!used[pool[i]]) { used[pool[i]] = true; out.push(pool[i]); }
+  }
+  var filler = ["Not sure", "None of these", "Pass"];
+  for (i = 0; i < filler.length && out.length < 3; i++) {
+    if (!used[filler[i]]) { used[filler[i]] = true; out.push(filler[i]); }
+  }
+  return out;
+}
+function buildDeck() {
+  deck = []; idx = 0; score = 0; locked = false;
+  var pool = BANK.map(function (e) { return e[1]; });
+  if (MODE === "math") {
+    for (var n = 0; n < 10; n++) {
+      var item = mathQuestion(n >= 6);
+      item.choices = shuffle([item.a].concat(wrongOnes(item.a, true, pool)));
+      deck.push(item);
+    }
+    return;
+  }
+  shuffle(BANK.slice()).slice(0, 10).forEach(function (e) {
+    deck.push({ q: e[0], a: e[1], numeric: false, choices: shuffle([e[1]].concat(wrongOnes(e[1], false, pool))) });
   });
 }
-function answer(idx, btn){
-  if(locked) return; locked = true;
-  var correct = idx === questions[i].a;
-  if(correct){ score++; btn.style.background="rgba(184,255,61,.18)"; btn.style.borderColor="#b8ff3d"; }
-  else { btn.style.background="rgba(255,95,158,.18)"; btn.style.borderColor="#ff5f9e"; }
-  setTimeout(function(){ i++; locked=false; render(); }, 620);
+function setProgress(extra) {
+  $("progress").textContent = extra || ("Question " + (idx + 1) + " of " + deck.length + " \\u00b7 Score " + score);
 }
-function end(){
-  stage.innerHTML = '<h2 style="font-size:22px;margin:0 0 6px">'+score+' / '+questions.length+'</h2><p class="sub">'+(score===questions.length?"Flawless run.":"Good run — review and go again.")+'</p><button class="btn" id="again">Play again</button>';
-  document.getElementById("again").onclick = function(){ i=0; score=0; render(); };
+function render() {
+  $("qTitle").textContent = TOPIC;
+  var q = deck[idx];
+  var box = $("choices");
+  box.innerHTML = "";
+  $("feedback").textContent = "";
+  $("next").hidden = true;
+  $("again").hidden = true;
+  locked = false;
+  if (!q) {
+    $("question").textContent = "No questions yet \\u2014 add your first one below.";
+    $("progress").textContent = "Empty deck";
+    return;
+  }
+  setProgress();
+  $("question").textContent = q.q;
+  q.choices.forEach(function (choice) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "choice";
+    b.textContent = choice;
+    b.onclick = function () { pick(b, choice); };
+    box.appendChild(b);
+  });
 }
+function pick(btn, choice) {
+  if (locked) return;
+  locked = true;
+  var q = deck[idx];
+  var right = String(choice) === String(q.a);
+  Array.prototype.forEach.call(document.querySelectorAll(".choice"), function (el) {
+    if (el.textContent === String(q.a)) el.classList.add("right");
+    else if (el === btn) el.classList.add("wrong");
+  });
+  if (right) { score++; $("feedback").textContent = "Correct."; }
+  else { $("feedback").textContent = "Not quite \\u2014 the answer is " + q.a + "."; }
+  setProgress();
+  if (idx < deck.length - 1) {
+    var next = $("next");
+    next.hidden = false;
+    next.textContent = "Next question";
+  } else {
+    finish();
+  }
+}
+function finish() {
+  $("choices").innerHTML = "";
+  $("feedback").textContent = "";
+  $("next").hidden = true;
+  $("question").textContent = "You scored " + score + " out of " + deck.length + ".";
+  $("progress").textContent = "Finished \\u00b7 Score " + score + " / " + deck.length;
+  var again = $("again");
+  again.hidden = false;
+  again.textContent = "Play again";
+}
+$("next").onclick = function () { idx++; render(); };
+$("again").onclick = function () {
+  buildDeck();
+  if (!deck.length) { render(); return; }
+  render();
+};
+$("addQ").onclick = function () {
+  var q = $("newQ").value.trim(), a = $("newA").value.trim();
+  if (!q || !a) return;
+  BANK.push([q, a]);
+  if (MODE === "math" || !deck.length) { MODE = "bank"; buildDeck(); }
+  $("newQ").value = ""; $("newA").value = "";
+  render();
+};
+buildDeck();
 render();
 `;
-        return page(
-          "Quizloop — quiz app",
-          "#2dd4ef",
-          "",
-          `<h1>Quizloop</h1><p class="sub">Four questions. No pressure.</p><div class="card" id="stage"></div>`,
-          script
-        );
-      },
+      const body = `<h1 id="qTitle">${heading}</h1><p class="sub" id="progress"></p>
+  <div class="card"><p id="question" style="font-size:20px;font-weight:600;line-height:1.35;margin:0 0 14px">Ready?</p>
+    <div class="choices" id="choices"></div>
+    <p class="feedback" id="feedback"></p></div>
+  <div class="row" style="margin-top:12px"><button class="btn" id="next" type="button" hidden>Next</button><button class="btn" id="again" type="button" hidden>Play again</button></div>
+  <div class="card" style="margin-top:14px">
+    <p style="margin:0 0 8px;font-size:13px;color:#8a91a6">Add a question</p>
+    <input id="newQ" placeholder="Question"><input id="newA" placeholder="Correct answer" style="margin-top:8px">
+    <button class="btn" id="addQ" type="button" style="margin-top:8px">Add question</button>
+  </div>`;
+      const css = `.choices{display:grid;gap:8px}
+.choice{text-align:left;padding:11px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.12);
+  background:#0a0d15;color:#eef1f6;cursor:pointer;font:inherit}
+.choice:hover{border-color:var(--accent)}
+.choice.right{border-color:#b8ff3d;background:rgba(184,255,61,.14)}
+.choice.wrong{border-color:#ff6b6b;background:rgba(255,107,107,.12)}
+.feedback{min-height:18px;font-size:12.5px;color:#8a91a6;margin:10px 0 0}`;
+      return page(heading, "#b8ff3d", css, body, script);
+    },
     },
     {
       id: "expense",
