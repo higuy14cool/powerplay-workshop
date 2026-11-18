@@ -1198,6 +1198,76 @@ render();
     );
   }
 
+  /* ---------- fast lane: a hello must not wait for the network ---------- */
+  // Words that mean "do some work". A message carrying one of them never gets a
+  // written-here answer, however friendly it starts.
+  const WORK_WORDS = /\b(make|build|create|add|remove|delete|fix|change|edit|update|rewrite|replace|turn|generate|design|install|deploy|save|rename|resize|move|copy|upgrade|code|script|game|games|app|apps|website|site|page|level|button|score|quiz|sound|colour|color|theme|speed|bigger|smaller|faster|slower)\b/;
+
+  const QUICK_LINES = [
+    {
+      test: /^(hi|hii+|hello|helo|hey+|heya|yo|yoo+|sup|howdy|hiya|greetings|good (morning|afternoon|evening|day)|morning|afternoon|evening)\b/,
+      lines: [
+        "Hey! I'm the Architect. Say **make …** and I build it, or **add …** to change a game you already have.",
+        "Hello! What are we building today — something new, or a change to one of your games?",
+        "Hey there. Tell me the idea in plain words and I'll build it; open a game first if you want me to change that one."
+      ]
+    },
+    {
+      test: /^(how (are|r) (you|u)|how are you doing|how's it going|how is it going|how are things|what's up|whats up|wassup|you good|are you (ok|okay|alright))\b/,
+      lines: [
+        "All good here, thanks — ready to build. What's the idea?",
+        "Running fine and ready. Give me a game or an app to make and I'll get to it."
+      ]
+    },
+    {
+      test: /^(thanks|thank you|thank u|thx|ty|tysm|cheers|appreciate it|nice one|perfect|great|awesome|amazing|brilliant|legend)\b/,
+      lines: [
+        "Any time. Want me to add anything else to it?",
+        "Glad it landed. Say the next change whenever you're ready."
+      ]
+    },
+    {
+      test: /(you('| a)?re (the best|great|awesome|amazing|brilliant|a legend|so good)|good (job|work)|nice (work|job|one)|well done|love (it|this|that)|this is (great|awesome|amazing|sick|fire)|that's (great|awesome|amazing|sick|fire|cool)|so cool|looks great|works great|you rock|kudos|respect)/,
+      lines: [
+        "Thank you — that's kind. What should we build next?",
+        "Appreciate it. Tell me the next thing and I'll make it.",
+        "Nice of you to say. Open a game and say **add …** if you want to keep going."
+      ]
+    },
+    {
+      test: /^(bye|goodbye|good bye|see you|see ya|cya|good ?night|night|later|peace|i'm done|im done|that's all|thats all)\b/,
+      lines: [
+        "See you! Your chats and games are saved — just open the workshop again.",
+        "Later! Everything you made is saved right here."
+      ]
+    },
+    {
+      test: /^(ok|okay|k|cool|nice|great|alright|sure|yes|yeah|yep|no|nope|lol|haha|hah|wow|oh|ah|omg|dang|hmm)\b/,
+      lines: [
+        "👍 Whenever you're ready — something new, or a change to one of your games.",
+        "Got it. Say **make …** for something new, or open a game and say **add …**."
+      ]
+    }
+  ];
+
+  // The answer to a greeting, a thanks or a compliment is already written down,
+  // so it comes back in about a tenth of a second instead of a network round trip.
+  function quickReply(text) {
+    const raw = String(text || "").trim();
+    if (!raw || raw.length > 90) return "";
+    if (WORK_WORDS.test(raw)) return "";
+    const l = raw.toLowerCase().replace(/[^\w\s'?!]/g, " ").replace(/\s+/g, " ").trim();
+    if (!l || l.split(" ").length > 8) return "";
+    for (const entry of QUICK_LINES) {
+      if (!entry.test.test(l)) continue;
+      if (/\?/.test(l) && !/^(how|what'?s up|you good|are you)/.test(l)) return "";
+      const pick = entry.lines[(entry.turn || 0) % entry.lines.length];
+      entry.turn = ((entry.turn || 0) + 1) % entry.lines.length;
+      return pick;
+    }
+    return "";
+  }
+
   function respond(prompt) {
     const trimmed = prompt.trim();
     if (!trimmed) return;
@@ -1207,6 +1277,17 @@ render();
     input.value = "";
     autoGrow();
     showTyping();
+
+    // A greeting, a thanks or a compliment is answered here, at once.
+    const quick = quickReply(trimmed);
+    if (quick) {
+      setTimeout(() => {
+        hideTyping();
+        addMessage("ai", quick);
+        busy = false;
+      }, 120);
+      return;
+    }
 
     // A real model builds what was asked; the template planner is only the fallback.
     if (window.PowerplayAI && window.PowerplayAI.ready()) {
@@ -1233,6 +1314,14 @@ render();
   ].join("\n");
 
   const CODE_LIMIT = 40000; // bigger files are described, not sent
+
+  // A question needs a couple of paragraphs, not a build's worth of room. Asking
+  // for less makes the model finish (and the answer arrive) several times sooner.
+  const BUILD_ASK = /^(?:\s*(?:please|hey|hi|hello|ok|okay|now|so|and|can you|could you|will you|i want you to|i need you to)\s+)*(?:make|build|create|generate|design|turn|rewrite|give me)\b/i;
+  function isBuildAsk(text) {
+    const t = String(text || "");
+    return BUILD_ASK.test(t) || /\b(make|build|create|rewrite)\b[\s\S]{0,40}\b(game|app|site|website|quiz|tool|page|player|level)\b/i.test(t);
+  }
 
   // An answer cut off at the token limit has no closing fence, so take everything
   // after the opening one; a bare file with no fence at all is kept too.
@@ -1459,7 +1548,8 @@ render();
         })));
       if (editingGame) messages.push({ role: "user", content: contextForEditing(editingGame, file) });
 
-      let out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
+      const maxTokens = editingGame ? 2000 : isBuildAsk(trimmed) ? 4000 : 900;
+      let out = await window.PowerplayAI.ask({ messages, maxTokens });
       let plan = aiPlan(out.text, trimmed);
       let patchInfo = null;
       let patchTried = false;
