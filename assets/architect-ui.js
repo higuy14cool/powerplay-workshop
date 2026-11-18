@@ -816,6 +816,9 @@ render();
   let convo = [];
   const saveBtn = $("#saveToGame");
   const saveNewBtn = $("#saveAsNew");
+  const codePre = codeOutput ? codeOutput.closest("pre") : null;
+  const codeEditor = $("#codeEditor");
+  const pythonOutput = $("#pythonOutput");
 
   function setEditingGame(game) {
     editingGame = game || null;
@@ -1006,6 +1009,10 @@ render();
     });
 
     codeOutput.textContent = plan.code;
+    if (codeEditor) codeEditor.value = plan.code || "";
+    setEditingCode(false);
+    setCodeLang("html");
+    renderPython(plan);
     previewFrame.setAttribute("srcdoc", plan.code);
     current = plan;
     if (editingGame && saveBtn) saveBtn.textContent = `Save to ${editingGame.title}`;
@@ -1217,7 +1224,8 @@ render();
     "Never replace their idea with a different app, never hand back a template because their wording was unfamiliar, and never say you cannot build something. Build the closest real, working version and say in one line what you left out.",
     "If the request is ambiguous, take the most likely reading and name it in one short line.",
     "If they ask a question or how something works, answer it plainly in 2-4 short paragraphs, no code.",
-    "If they ask to change an app or game whose file is given below, return the COMPLETE updated file: keep every feature that already worked, change only what they asked for, keep its name in <title> and <h1>.",
+    "When you are changing an app or game that already exists, you are adding to it: send only the small FIND/REPLACE, ADD AFTER or APPEND blocks the request below describes, never the whole file back, and never restyle or rewrite what was not asked about.",
+    "When changing an existing app, if their words could mean two different things or do not say where the change goes, ask ONE short question and wait instead of guessing.",
     "When you build: open with 2-4 sentences saying what the app does and how to use or play it, then exactly one ```html fence holding one complete file. Everything inline (style and script), no CDN, no imports, no external images or fonts, no build step: it must run by opening the file.",
     "Give it real working controls for keyboard, mouse and touch, a score or result the player can see, and a restart. Use no library unless the user asks for one.",
     "Make it look deliberate: a dark or bright palette of its own, readable type, and a layout that still works on a phone.",
@@ -1298,18 +1306,124 @@ render();
     }
   }
 
-  // The free host caps one answer at roughly 1,500 tokens (~5,500 characters),
-  // so a big file is asked for as a compact version instead of a full copy.
-  const COMPACT_ABOVE = 2400;
+  // ---- editing means adding to the real file, not replacing it ----
+  const PATCH_MAX = 12000; // a file this small can be pasted into the prompt whole
+
+  function patchRules() {
+    return [
+      "Rules for changing an existing file:",
+      "- Do NOT send the file back. Add to it: send only the pieces that change.",
+      "- One block per change, exactly in this shape:",
+      "---- FIND",
+      "existing lines copied exactly (3 or more, so they are unique)",
+      "---- REPLACE",
+      "those same lines, with your change",
+      "---- END",
+      "- To put code next to something, or straight after a line:",
+      "---- ADD AFTER",
+      "an existing line, copied exactly",
+      "---- WITH",
+      "the new lines that go right after it",
+      "---- END",
+      "- To add code with no natural anchor, use ---- APPEND ---- (it lands just before </body>).",
+      "- Never rewrite, reformat, shorten or re-title the rest of the file: everything you do not mention stays exactly as it is.",
+      "- If my request does not say what to add, or there are two sensible places for it, do not patch: ask me ONE short question and wait."
+    ].join("\n");
+  }
+
+  // What a big file looks like from the outside: the lines the AI can anchor on.
+  function outlineOf(code) {
+    const lines = String(code).split(/\r?\n/);
+    const picked = [];
+    lines.forEach((l, i) => {
+      const t = l.trim();
+      if (!t) return;
+      if (/^<script[^>]*src=/.test(t) || /^<link[^>]*href=/.test(t) || /\bid="/.test(t) || /^function\s+\w+/.test(t) || /^\s*(const|let|var)\s+\w+\s*=\s*function/.test(l)) {
+        if (picked.length < 90) picked.push(`${i + 1}: ${t.slice(0, 160)}`);
+      }
+    });
+    return picked.length ? picked.join("\n") : lines.slice(0, 40).join("\n");
+  }
 
   function contextForEditing(game, file) {
     const head = `Change this app: **${game.title}** (${game.genre || "game"}${game.tagline ? ", " + game.tagline : ""}).`;
-    const small = file && file.code && file.code.length <= COMPACT_ABOVE;
-    if (small) {
-      return head + "\n\nIts current file is below. Return the COMPLETE updated file with the same name, keeping every feature that already works.\n\n```html\n" + file.code + "\n```";
+    const rules = "\n\n" + patchRules();
+    if (file && file.code && file.code.length <= PATCH_MAX) {
+      return head + rules + "\n\nThe whole file is below — copy its lines from here exactly.\n\n```html\n" + file.code + "\n```";
     }
-    const size = file && file.code ? `${Math.round(file.code.length / 1000)} KB of engine code` : "engine code I cannot load";
-    return head + `\n\nThe answer limit here is about 1,500 tokens, so do NOT reproduce its ${size}. Build ONE complete compact file instead (under 220 lines, everything inline, same name in <title> and <h1>) that keeps the same game, adds what I asked for, and really runs. Say in one line what you simplified.`;
+    const outline = outlineOf(file && file.code ? file.code : "");
+    return head + rules + `\n\nIts file is too big to paste (${file && file.code ? Math.round(file.code.length / 1000) + " KB" : "not loadable"}), so here are its real lines with their line numbers. Anchor on one of them exactly, or use APPEND:\n\n` + outline;
+  }
+
+  function parsePatch(text) {
+    const out = [];
+    let cur = null;
+    const flush = () => {
+      if (!cur) return;
+      if (cur.type === "replace") {
+        const find = cur.find.replace(/^\n+|\s+$/g, "");
+        if (find.trim()) out.push({ type: "replace", find, replace: cur.repl.replace(/^\n+|\s+$/g, "") });
+      } else {
+        const code = cur.code.replace(/^\n+|\s+$/g, "");
+        if (code.trim()) out.push({ type: cur.type, anchor: cur.anchor.trim(), code });
+      }
+      cur = null;
+    };
+    for (const line of String(text).split(/\r?\n/)) {
+      const m = line.match(/^\s*(?:-{3,}|={3,})\s*(FIND|REPLACE|WITH|ADD AFTER|APPEND|END)\s*$/i);
+      if (!m) {
+        if (cur) (cur.type === "replace" ? (cur.part === "repl" ? (cur.repl += line + "\n") : (cur.find += line + "\n")) : cur.part === "anchor" ? (cur.anchor += line + "\n") : (cur.code += line + "\n"));
+        continue;
+      }
+      const k = m[1].toUpperCase();
+      if (k === "FIND") { flush(); cur = { type: "replace", part: "find", find: "", repl: "" }; }
+      else if (k === "ADD AFTER") { flush(); cur = { type: "after", part: "anchor", anchor: "", code: "" }; }
+      else if (k === "APPEND") { flush(); cur = { type: "append", part: "code", anchor: "", code: "" }; }
+      else if (k === "REPLACE" || k === "WITH") { if (cur) { cur.part = cur.type === "replace" ? "repl" : "code"; } }
+      else if (k === "END") { flush(); }
+    }
+    flush();
+    return out;
+  }
+
+  // exact match first, then the same text with any run of spaces/newlines inside it.
+  function findSpot(hay, needle) {
+    const n = needle.replace(/^\s+|\s+$/g, "");
+    if (!n) return null;
+    const direct = hay.indexOf(n);
+    if (direct >= 0) return [direct, n.length];
+    try {
+      const re = new RegExp(n.split(/\s+/).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+"));
+      const m = hay.match(re);
+      if (m) return [m.index, m[0].length];
+    } catch (e) { /* a pattern we cannot build is just a miss */ }
+    return null;
+  }
+
+  function applyPatch(code, blocks) {
+    let out = String(code || "");
+    const done = [];
+    const missed = [];
+    for (const b of blocks) {
+      if (b.type === "replace") {
+        const spot = findSpot(out, b.find);
+        if (!spot) { missed.push(b.find.split("\n")[0].trim().slice(0, 60)); continue; }
+        out = out.slice(0, spot[0]) + b.replace + out.slice(spot[0] + spot[1]);
+        done.push("changed “" + b.find.split("\n")[0].trim().slice(0, 48) + "”");
+      } else if (b.type === "after") {
+        const spot = findSpot(out, b.anchor);
+        if (!spot) { missed.push(b.anchor.split("\n")[0].trim().slice(0, 60)); continue; }
+        const at = spot[0] + spot[1];
+        out = out.slice(0, at) + "\n" + b.code + out.slice(at);
+        done.push("added after “" + b.anchor.split("\n")[0].trim().slice(0, 48) + "”");
+      } else {
+        const idx = out.search(/<\/body>/i);
+        const at = idx >= 0 ? idx : out.length;
+        out = out.slice(0, at) + "\n" + b.code + "\n" + out.slice(at);
+        done.push("added " + b.code.split("\n").length + " lines at the end");
+      }
+    }
+    return { code: out, done, missed };
   }
 
   async function respondWithAI(trimmed) {
@@ -1347,9 +1461,42 @@ render();
 
       let out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
       let plan = aiPlan(out.text, trimmed);
+      let patchInfo = null;
+      let patchTried = false;
+      let junk = false;
 
-      // A cut-off answer is asked for again as a compact file that fits the limit.
-      if (plan.code && (out.truncated || !looksWhole(plan.code))) {
+      if (editingGame) {
+        const base = file && file.code ? file.code : "";
+        let blocks = parsePatch(out.text);
+        let applied = base ? applyPatch(base, blocks) : { code: base, done: [], missed: [] };
+
+        // The blocks did not line up with the file: ask once more, with the file in view.
+        if (base && blocks.length && !applied.done.length) {
+          patchTried = true;
+          messages.push({ role: "assistant", content: String(out.text).slice(0, 3000) });
+          messages.push({
+            role: "user",
+            content: "None of those FIND lines matched the file exactly. Copy the lines character for character from the file in this conversation, or use ---- APPEND ---- for code that goes at the end. Send the blocks again."
+          });
+          out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
+          blocks = parsePatch(out.text);
+          applied = applyPatch(base, blocks);
+        }
+
+        if (blocks.length && applied.done.length) {
+          plan.code = applied.code;   // the patched real file, nothing else touched
+          patchInfo = applied;
+        } else if (blocks.length || patchTried) {
+          plan.code = "";             // never replace the game with a patch that missed
+        } else if (plan.code) {
+          // A whole file is only taken if it really is one: a big game must never
+          // be swapped for a stray snippet the model sent instead of blocks.
+          const asDoc = /<!doctype|<html|<body/i.test(plan.code);
+          const shrunk = base.length > PATCH_MAX && plan.code.length < base.length * 0.5;
+          if (!asDoc || shrunk) { plan.code = ""; junk = true; }
+        }
+      } else if (plan.code && (out.truncated || !looksWhole(plan.code))) {
+        // A cut-off answer is asked for again as a compact file that fits the limit.
         messages.push({ role: "assistant", content: String(out.text).slice(0, 3000) });
         messages.push({
           role: "user",
@@ -1362,9 +1509,23 @@ render();
 
       clearInterval(ticker);
       hideTyping();
-      const cut = !!plan.code && !looksWhole(plan.code);
+      const engine = out.engine || window.PowerplayAI.label();
 
-      if (plan.code) {
+      if (patchInfo && editingGame) {
+        renderPlan(plan);
+        switchTab("code");
+        const n = patchInfo.done.length;
+        addMessage(
+          "ai",
+          `**${editingGame.title}** is updated — ${n} change${n === 1 ? "" : "s"}; the rest of the file is untouched.\n\n` +
+            patchInfo.done.slice(0, 6).map((d) => "- " + d).join("\n") + "\n\n" +
+            (plan.summary ? plan.summary + "\n\n" : "") +
+            `Made by ${engine}. **Save to ${editingGame.title}** keeps it, and *Restore original* puts the shipped version back.` +
+            (patchInfo.missed.length ? `\n\n⚠ ${patchInfo.missed.length} change didn't line up and was skipped.` : "")
+        );
+        if (window.PowerplayApp) window.PowerplayApp.toast("Updated — check the Code tab.", "ok");
+      } else if (plan.code) {
+        const cut = !editingGame && !looksWhole(plan.code);
         renderPlan(plan);
         switchTab("code");
         const saveNote = editingGame
@@ -1373,10 +1534,21 @@ render();
         addMessage(
           "ai",
           `**${plan.name}** is built.\n\n` + (plan.summary ? plan.summary + "\n\n" : "") +
-            `Made by ${out.engine || window.PowerplayAI.label()}. ` + saveNote +
+            `Made by ${engine}. ` + saveNote +
             (cut ? "\n\n⚠ The answer hit this AI's length limit and is the compact version. Add your own key in AI settings for full-size files." : "")
         );
         if (window.PowerplayApp) window.PowerplayApp.toast(cut ? "Built a compact version — see the Code tab." : "Built it — check the Code tab.", "ok");
+      } else if (editingGame && junk) {
+        addMessage(
+          "ai",
+          `The AI sent something that wasn't a usable change to **${editingGame.title}**, so your game is exactly as it was. Say again what to add (and where, if it has a spot), or write it in the Code tab.`
+        );
+        if (window.PowerplayApp) window.PowerplayApp.toast("Nothing was changed — the answer wasn't usable.", "err");
+      } else if (editingGame && patchTried) {
+        addMessage(
+          "ai",
+          `I couldn't line that change up with **${editingGame.title}**'s file, so nothing was changed. Say where it should go (for example “add it under the scoreboard”) and I'll place it there.`
+        );
       } else {
         addMessage("ai", out.text.trim());
       }
@@ -1478,6 +1650,9 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     setEditingGame(null);
     previewFrame.removeAttribute("srcdoc");
     codeOutput.textContent = "";
+    if (codeEditor) codeEditor.value = "";
+    if (pythonOutput) pythonOutput.textContent = "";
+    setEditingCode(false);
     $("#bpTitle").textContent = "Blueprint";
     $("#bpSubtitle").textContent = "Ask the Architect to generate a plan";
     planView.innerHTML = `
@@ -1573,6 +1748,148 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
         `**${game.title}** is in the library with its own play link:\n\n\`${link}\`\n\nOpen it in a new tab, or copy it from the card with the Copy button.`
       );
     }
+  });
+
+  /* ---------- the code pane: edit it, run it, read its Python ---------- */
+  let editingCode = false;
+  let codeLang = "html";
+
+  function setEditingCode(on) {
+    editingCode = !!on;
+    if (!codeEditor || !codePre) return;
+    if (on && current) codeEditor.value = current.code || "";
+    codeEditor.hidden = !on || codeLang === "python";
+    codePre.hidden = on || codeLang === "python";
+    $("#editCode").textContent = on ? "Done" : "Edit";
+    $("#codeHint").hidden = !on || codeLang === "python";
+    $("#runCode").hidden = codeLang === "python";
+  }
+
+  function setCodeLang(lang) {
+    codeLang = lang === "python" ? "python" : "html";
+    const py = codeLang === "python";
+    if (py) $("#pyPane").hidden = false;
+    else $("#pyPane").hidden = true;
+    if (codePre) codePre.hidden = py || editingCode;
+    if (codeEditor) codeEditor.hidden = py || !editingCode;
+    $("#langHtml").classList.toggle("is-active", !py);
+    $("#langPython").classList.toggle("is-active", py);
+    $("#langHtml").setAttribute("aria-selected", String(!py));
+    $("#langPython").setAttribute("aria-selected", String(py));
+    $("#editCode").hidden = py;
+    $("#runCode").hidden = py;
+    $("#copyCode").hidden = py;
+    $("#downloadCode").hidden = py;
+    $("#codeFilename").hidden = py;
+    $("#codeHint").hidden = py || !editingCode;
+    if (py) renderPython(current);
+  }
+
+  function renderPython(plan) {
+    if (!pythonOutput) return;
+    const py = plan && plan.pythonCode ? plan.pythonCode : "";
+    const slug = ((plan && plan.name) || "game").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    $("#pyFilename").textContent = slug + ".py";
+    pythonOutput.textContent = py || (window.PowerplayAI && window.PowerplayAI.ready()
+      ? "No Python version yet. Press “Write the Python version” and the AI writes one that behaves the same — one file, standard library only."
+      : "The Python version is written by the AI. Set it up with the chip at the top of this panel, then press “Write the Python version”.");
+    $("#makePython").hidden = !!py;
+    $("#copyPython").hidden = !py;
+    $("#downloadPython").hidden = !py;
+  }
+
+  function fencePython(text) {
+    const blocks = Array.from(String(text).matchAll(/```[a-zA-Z]*\s*\n([\s\S]*?)```/g)).map((m) => m[1]);
+    const pick = (blocks.filter((b) => /^\s*(#|import |from |def |class )/m.test(b))).pop() || blocks.pop();
+    if (pick && /def |import |print\(/.test(pick)) return pick.trim();
+    const open = String(text).match(/```[a-zA-Z]*\n([\s\S]*)$/);
+    return open && /def |import |print\(/.test(open[1]) ? open[1].trim() : "";
+  }
+
+  if (codeEditor) codeEditor.addEventListener("input", () => {
+    if (!current) return;
+    current.code = codeEditor.value;
+    codeOutput.textContent = codeEditor.value;
+  });
+
+  $("#editCode").addEventListener("click", () => {
+    if (!current) {
+      if (window.PowerplayApp) window.PowerplayApp.toast("Ask for an app first.", "err");
+      return;
+    }
+    setEditingCode(!editingCode);
+  });
+
+  $("#runCode").addEventListener("click", () => {
+    if (!current) return;
+    if (editingCode) current.code = codeEditor.value;
+    current.code = current.code || "";
+    previewFrame.setAttribute("srcdoc", current.code);
+    codeOutput.textContent = current.code;
+    switchTab("preview");
+    if (window.PowerplayApp) window.PowerplayApp.toast("Preview updated.", "ok");
+  });
+
+  $("#langHtml").addEventListener("click", () => setCodeLang("html"));
+  $("#langPython").addEventListener("click", () => setCodeLang("python"));
+
+  $("#makePython").addEventListener("click", async () => {
+    if (!current || !current.code) return;
+    if (!(window.PowerplayAI && window.PowerplayAI.ready())) {
+      if (window.PowerplayApp) window.PowerplayApp.toast("Set up the AI first — the chip at the top.", "err");
+      return;
+    }
+    const btn = $("#makePython");
+    btn.disabled = true;
+    const was = btn.textContent;
+    btn.textContent = "Writing…";
+    pythonOutput.textContent = "Writing the Python version of " + current.name + "…";
+    try {
+      const code = String(current.code).slice(0, 12000);
+      const out = await window.PowerplayAI.ask({
+        maxTokens: 4000,
+        messages: [
+          { role: "system", content: "You write Python. Answer with exactly one ```python fence holding one complete file, and nothing else. Standard library only, no pip installs, under 200 lines." },
+          { role: "user", content: `Write the Python version of this app: ${current.name}. Same behaviour and the same controls, as a desktop program${/\b(game|player|score|level)\b/i.test(code) ? ": use tkinter with a Canvas and an after() loop" : ": use tkinter"}. It must run with \"python app.py\".\n\nIts code:\n\`\`\`html\n${code}\n\`\`\`` }
+        ]
+      });
+      const py = fencePython(out.text);
+      if (!py) throw new Error("The AI didn't return Python code. Try again.");
+      current.pythonCode = py;
+      renderPython(current);
+      if (window.PowerplayChats) window.PowerplayChats.setPlan(current);
+      if (window.PowerplayApp) window.PowerplayApp.toast("Python version ready.", "ok");
+    } catch (err) {
+      pythonOutput.textContent = "Couldn't write it: " + (err && err.message ? err.message : "unknown error") + "\nPress the button to try again.";
+      if (window.PowerplayApp) window.PowerplayApp.toast("Python version failed — see the pane.", "err");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = was;
+    }
+  });
+
+  $("#copyPython").addEventListener("click", async () => {
+    if (!current || !current.pythonCode) return;
+    try {
+      await navigator.clipboard.writeText(current.pythonCode);
+      if (window.PowerplayApp) window.PowerplayApp.toast("Python copied.");
+    } catch (e) {
+      if (window.PowerplayApp) window.PowerplayApp.toast("Select the code and copy it.", "err");
+    }
+  });
+
+  $("#downloadPython").addEventListener("click", () => {
+    if (!current || !current.pythonCode) return;
+    const blob = new Blob([current.pythonCode], { type: "text/x-python" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = $("#pyFilename").textContent;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (window.PowerplayApp) window.PowerplayApp.toast("Python file downloaded.");
   });
 
   $("#copyCode").addEventListener("click", async () => {

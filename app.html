@@ -167,6 +167,10 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
             <strong>Architect</strong>
             <span class="muted">app planning co-pilot</span>
           </div>
+          <a class="lemon-link" id="lemonAssistant" href="https://lemoncode.ai" target="_blank" rel="noopener" title="Open Lemoncode AI in a new tab">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8 1 .8 1.6V17h5.6v-1.6c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3ZM9.5 20h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>Lemoncode assistant</span>
+          </a>
           <button class="icon-btn" id="resetChat" type="button" title="New conversation" aria-label="New conversation" aria-haspopup="dialog">
             <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
@@ -228,8 +232,14 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 
           <div class="bp-view" id="bpCode">
             <div class="code-toolbar">
+              <div class="code-langs" role="tablist" aria-label="Code language">
+                <button class="code-lang is-active" id="langHtml" data-lang="html" type="button" role="tab" aria-selected="true">HTML</button>
+                <button class="code-lang" id="langPython" data-lang="python" type="button" role="tab" aria-selected="false">Python</button>
+              </div>
               <span class="file-pill" id="codeFilename">app.html</span>
               <div class="code-actions">
+                <button class="btn btn-tiny btn-ghost" id="editCode" type="button">Edit</button>
+                <button class="btn btn-tiny btn-lime" id="runCode" type="button">Run preview</button>
                 <button class="btn btn-tiny btn-lime" id="saveToGame" type="button" hidden>Save to game</button>
                 <button class="btn btn-tiny btn-ghost" id="saveAsNew" type="button" hidden>Save as new game</button>
                 <button class="btn btn-tiny btn-ghost" id="copyCode" type="button">Copy</button>
@@ -237,6 +247,17 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
               </div>
             </div>
             <pre class="code-block"><code id="codeOutput"></code></pre>
+            <textarea class="code-block code-edit" id="codeEditor" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" aria-label="Edit the game code" hidden></textarea>
+            <div class="py-pane" id="pyPane" hidden>
+              <div class="py-bar">
+                <span class="file-pill" id="pyFilename">game.py</span>
+                <button class="btn btn-tiny btn-lime" id="makePython" type="button">Write the Python version</button>
+                <button class="btn btn-tiny btn-ghost" id="copyPython" type="button">Copy</button>
+                <button class="btn btn-tiny btn-ghost" id="downloadPython" type="button">Download .py</button>
+              </div>
+              <pre class="code-block"><code id="pythonOutput" class="py-code"></code></pre>
+            </div>
+            <p class="code-hint" id="codeHint" hidden>You're editing the code. <b>Run preview</b> shows it; <b>Save to game</b> keeps it.</p>
           </div>
 
           <div class="bp-view" id="bpPreview">
