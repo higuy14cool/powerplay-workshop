@@ -1,7 +1,7 @@
 {
   "name": "POWERPLAY Workshop",
   "short_name": "POWERPLAY",
-  "id": "/app.html",
+  "id": "./app.html",
   "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
