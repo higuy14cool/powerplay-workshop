@@ -966,21 +966,177 @@ render();
     }
   }
 
-  function adviceFor(prompt) {
-    const t = prompt.toLowerCase();
-    if (/login|auth|sign.?in|account/.test(t)) {
-      return "**Auth next steps**\n\n1. Add email + password fields and validate them.\n2. Store users server-side with hashed passwords — never in the browser.\n3. Keep a session token and protect any route that reads private data.\n\nFor a local prototype, fake a signed-in user first and wire real auth once the core loop feels good.";
+  /* ---------- explanations: answer questions instead of building ---------- */
+
+  // "make me a quiz?" is an order, "what is a quiz?" is a question.
+  const QUESTION_START = /^(what|whats|what's|why|how|when|where|which|who|whose|does|do|did|is|are|was|were|can|could|should|would|will)\b/i;
+
+  function isQuestion(text) {
+    const t = String(text || "").trim();
+    const l = t.toLowerCase();
+    if (!l) return false;
+    if (/^(explain|describe|tell me (about|how|why)|what does|what is|what's|why|how come)\b/.test(l)) return true;
+    // an order dressed as a question still gets built
+    if (/\b(can|could|will|would) you\b[^?]*\b(make|build|create|add|change|fix|generate|remake|rewrite|replace|turn)\b/.test(l)) return false;
+    if (/^(make|build|create|add|change|rewrite|replace|turn|generate|design|remake|remove|delete)\b/.test(l)) return false;
+    return /\?\s*$/.test(t) || QUESTION_START.test(l);
+  }
+
+  function libraryList() {
+    const shipped = (window.PowerplayGames && window.PowerplayGames.GAMES) || [];
+    const local = (window.PowerplayApp && window.PowerplayApp.getGames && window.PowerplayApp.getGames()) || [];
+    const seen = {};
+    return shipped.concat(local).filter((g) => {
+      if (!g || !g.id || seen[g.id]) return false;
+      seen[g.id] = true;
+      return true;
+    });
+  }
+
+  function explainPlan() {
+    const p = current;
+    const lines = [
+      `**${p.name}** — the build in front of you`,
+      "",
+      `It is a **${p.archetype.name}** build: ${p.archetype.tagline}`,
+      "",
+      `**Screens:** ${p.screens.join(" → ")}`,
+      `**What it does:** ${p.features.slice(0, 3).join("; ")}`,
+      `**Stack:** ${p.stack.join(", ")}`,
+      "",
+      "Where the code lives: the **Code** tab is one self-contained HTML file — a style block for the look, the markup for each screen, and a script block holding the state variables plus the few functions that drive them. Nothing is fetched from a network, so that single file runs anywhere. The **Preview** tab runs that same file inside a sandboxed frame, and the **Plan** tab is the build order you would follow to write it yourself.",
+      "",
+      "To change it, describe the change: “make the timer 30 seconds”, “add a start screen”, “two players”. I rebuild the file from your words — I never patch the old one line by line.",
+    ];
+    return lines.join("\n");
+  }
+
+  const EXPLANATIONS = [
+    {
+      test: /(what are you|which ai|what ai|real ai|an? language model|chatgpt|openai|how do you work|how are you built|your model|api key|do you think)/,
+      say: () =>
+        "Straight answer: I'm the **Architect** in POWERPLAY Workshop — a planner made of templates, not a language model. I read your words for keywords and numbers, choose a shape I already carry (Hitgrid, Blaster, Dashline, Pairup, Matchday, Quizdeck, Streakline, and the app shapes), then print a blueprint plus a runnable starter file.\n\nNothing is sent to a server and there is no API key, which is why I answer instantly and work offline — and also why I can't invent a game I have no template for, rewrite your three.js code, or answer general knowledge questions. I explain the workshop's own building blocks well because that knowledge is written into me.\n\nIf you want a general-purpose model in here, its key has to live server-side (a tiny proxy in `start.py`), never in the page.",
+    },
+    {
+      test: /(this|that|the build|the plan|the blueprint|the code|your code|you made|you built|why did you|which shape|the tab|the preview|the step)/,
+      say: () => (current ? explainPlan() : null),
+    },
+    {
+      test: /(game loop|requestanimationframe|animation frame|60 fps|frame rate|tick)/,
+      say: () =>
+        "Every game is the same three-beat heartbeat: **read input → update the world → draw it**. On the web the heartbeat is `requestAnimationFrame(step)`, which asks the browser to call your function just before the next repaint — about 60 times a second on a normal screen, slower on a busy phone.\n\n```\nfunction step(now) {\n  const dt = (now - last) / 1000;  // seconds since last frame\n  last = now;\n  update(dt);                      // move things by dt\n  draw();                          // clear + redraw everything\n  requestAnimationFrame(step);\n}\nrequestAnimationFrame(step);\n```\n\nMove things by the clock (`performance.now()`), never by “one step per frame”, or a slow machine makes the game slow. `setInterval(fn, 16)` is the wrong tool: it drifts and keeps running in a hidden tab, while animation frames politely pause.",
+    },
+    {
+      test: /(canvas|getcontext|draw|render)/,
+      say: () =>
+        "A **canvas** is a blank rectangle the page gives you to paint on with JavaScript. You don't add elements to it — you call drawing commands:\n\n`const ctx = canvas.getContext(\"2d\"); ctx.fillStyle = \"#b8ff3d\"; ctx.fillRect(x, y, 30, 30);`\n\nCoordinates start at the top-left corner: `x` grows right, `y` grows down. Nothing stays on it — each frame you clear it (`clearRect`) and draw everything again, which is why a game redraws 60 times a second.\n\nAlso: a canvas is pixels, not DOM. You can't click a drawn button, style it with CSS, or select its text; and if its CSS size and its `width`/`height` attributes disagree, everything looks blurry.",
+    },
+    {
+      test: /(collision|collide|hit|overlap|touch the wall)/,
+      say: () =>
+        "Two rectangles overlap when they overlap on **both** axes:\n\n`a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y`\n\nCircles are cheaper: the distance between centres is less than the sum of the radii. Run the check right after you move everything and before you draw, and move in small steps (or check the path) so a fast object can't jump straight through a wall between frames.",
+    },
+    {
+      test: /(score|points|high score|restart|reset the game|game over)/,
+      say: () =>
+        "A score is just a variable: `let score = 0`. The number on screen is a **separate** thing you update whenever the variable changes — `scoreEl.textContent = score`. Nothing is automatic; forget the second step and the score moves in memory while the screen stands still.\n\nA restart is the same idea in reverse: set the score back to 0, empty the arrays, put the player back at the start, then re-render once. Keep all of a game's changing values in one `state` object so “restart” is `state = freshState()` instead of ten scattered lines.",
+    },
+    {
+      test: /(keyboard|keypress|arrow keys|controls|tap|touch|mouse|pointer)/,
+      say: () =>
+        "Keyboard: listen for `keydown` and `keyup` on `window`, remember which keys are held in an object, and read that object in your update step. Holding a key then gives smooth movement instead of one jump per repeat press.\n\nPhones have no keyboard, so add on-screen buttons or pointer events: `pointerdown` / `pointerup` on a button, `pointermove` on the canvas if you need drag or aim. Make targets at least 44px, and call `preventDefault()` on arrow keys and space so the page doesn't scroll while someone plays.",
+    },
+    {
+      test: /(localstorage|storage|save|persist|survive|database|backend|autosave)/,
+      say: () =>
+        "`localStorage` is a small text store that belongs to **one browser on one device**: around 5 MB, survives reloads and quitting, gone if the person clears site data or switches browser. You can only store strings, so `JSON.stringify` on the way in and `JSON.parse` on the way out. That's exactly what this workshop uses for games, accounts, assignments and chats — it is why everything is still there when you come back.\n\nIt is not shared between people and it is not private: anyone using that browser can read it. Real accounts and shared data need a server with a database, and passwords hashed there — never in the page.",
+    },
+    {
+      test: /(login|auth|sign.?in|account|password|passcode|admin|worker|role|permission)/,
+      say: () =>
+        "In this workshop, login is a **screen, not security**: the accounts live in `localStorage` and the checking happens in the browser, so a technical person could read or edit them. For a private workshop on your own machine that's a fair trade — and the site hides the shell (`inert`) until someone signs in, so nothing behind the gate can be clicked by accident.\n\nTo make it real: send username + passcode to a server, store only a hash (`bcrypt`/`argon2`), return a session cookie, and check permissions **on the server** for every request. Roles (admin vs worker) must be enforced there too — a browser-side check is a hint, never a lock.",
+    },
+    {
+      test: /(install|manifest|pwa|home screen|icon|standalone|app mode)/,
+      say: () =>
+        "The app installs because of `app.webmanifest`: a name, theme colours, icons and `display: \"standalone\"`, which tells the browser to open it without an address bar. Browsers only offer installation over **https or localhost**, which is why it works at `http://localhost:…` and not from a file you double-click.\n\nChrome/Edge show an install button in the address bar (the workshop's **Install app** button triggers the same prompt); on iPhone use Share → **Add to Home Screen**. The icons are real PNGs in `assets/icons/`, drawn in the lime/dark palette; one is full-bleed for Android's maskable icon slot.\n\nNext step if you want true offline use: a service worker that caches the files after the first visit.",
+    },
+    {
+      test: /(deploy|host|publish|online|domain|netlify|vercel|github pages|public url|share)/,
+      say: () =>
+        "POWERPLAY Workshop is plain static files — `index.html`, `app.html`, `assets/`, `games/` — so any static host will serve it: GitHub Pages (repo → Settings → Pages), Netlify or Vercel (drag the folder in). No build step and no npm.\n\nThe catch is that everything in those files is public: the login gate is a screen, not protection, so don't put anything private in them. And the address you see in this workspace (`http://127.0.0.1:4173`) only exists inside this machine — nobody else can open it. To give someone a real link, the folder has to go to a host, or the site has to be published from here as a shareable page.",
+    },
+    {
+      test: /(three\.?js|3d|webgl|your games are 3d|scene|camera|mesh)/,
+      say: () =>
+        "Your older games (Ballistic, ProKick and friends) use **three.js**: a scene, a camera, lights and meshes, drawn by WebGL. The starters I write are 2D canvas, one file, no libraries — deliberately, so they run anywhere with no setup and no network.\n\nBecause I have no model reading your code, I can't patch a three.js scene: when you ask me to edit one of those games I rebuild it in a shape I already know and save that as its playable build, leaving the original files in `games/<name>/` untouched. Real three.js changes mean editing those files by hand, or connecting a real model to the Architect.",
+    },
+    {
+      test: /(quiz|question|answer|wrong choice|multiple choice|trivia)/,
+      say: () =>
+        "A quiz build has three moving parts. **The generator** (`mathQuestion`) makes a question and its answer — arithmetic for a math quiz, or your own `Question? = Answer` lines for anything else. **The distractor maker** (`wrongOnes`) invents the three wrong choices: for numbers, nearby values; for words, the other answers plus safe fillers.\n\n**The render step** shows one question at a time: buttons come from the shuffled choices, a click locks the buttons, marks right/wrong and adds to `score`, then **Next** advances the index. After the last question the card shows `You scored 7 out of 10` and a replay that rebuilds the deck.\n\nSo a math quiz genuinely computes, while a quiz about a subject uses the facts **you** give it — I won't invent them.",
+    },
+    {
+      test: /(timer|countdown|seconds|time limit|clock)/,
+      say: () =>
+        "For a countdown, trust the clock rather than a counter: store `endAt = performance.now() + 30000`, then every frame show `Math.max(0, endAt - performance.now())`. A counter that subtracts 1 per frame runs fast on a 144 Hz screen and slow on a busy phone, so two players never get the same 30 seconds.\n\nFor “time played” in the library the workshop just adds a minute each time you press Play — honest enough for a personal workshop, and easy to replace with real elapsed time later.",
+    },
+    {
+      test: /(mobile|phone|responsive|viewport|screen size|small screen)/,
+      say: () =>
+        "Three things make a page work on a phone. The `<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">` tag, so the page uses the real device width instead of pretending to be 980px wide. Flexible sizing — `max-width: 100%`, `flex-wrap`, no fixed pixel widths for big blocks. And touch-sized controls: at least 44px, spaced so a thumb doesn't hit two at once.\n\nA canvas needs its CSS size and its backing `width`/`height` to match, or it looks blurry; and media queries are where layout changes (the workshop switches the workers panel and top bar to stacked layouts under 860px and 560px).",
+    },
+    {
+      test: /(bug|broken|error|not working|debug|console|crash|lag|slow)/,
+      say: () =>
+        "When something breaks: open devtools (F12) → **Console** and read the **first** red line, not the last — later errors are usually fallout. Then put a `console.log` of the values just before the line that fails, and shrink the case until it's tiny.\n\nFor a game that feels laggy, the usual suspects in order: redrawing the whole canvas for things that don't change, work inside the animation frame that could run once (loading images, building arrays), too many objects, and shadows or filters on a phone. Check with the Performance tab: if a frame takes more than 16 ms, something is too heavy.",
+    },
+    {
+      test: /(react|next\.?js|vue|svelte|flutter|python|django|flask|typescript|which stack|what stack|framework)/,
+      say: () =>
+        "Pick the smallest stack that ships the idea. **Plain HTML/CSS/JS** for one screen with a bit of state — that's what I generate, and it needs no install, no build and no server. **React + Vite** (or Vue/Svelte) once several screens share the same state and you want components. **Node + SQLite** or **Supabase** when several people must see the same data. **Flutter / React Native** only if you genuinely need an app-store build.\n\nA static site plus `localStorage` gets you a working, shareable prototype far faster than a framework — move up a level when a real limit appears, not before.",
+    },
+    {
+      test: /(how do i start|what should i build|what can you do|idea|stuck|new to|beginner|learn)/,
+      say: () =>
+        "Start with the smallest version of the idea that is still fun to press once. For a game that means one screen, one verb (move, aim, jump, answer), a score and a replay button — then add enemies, levels, menus. For an app it means one list, one form to add to it, and it saving itself.\n\nTell me the core action in plain words and I'll build that shape: “a 30-second quiz with three questions”, “a game where you dodge falling blocks”, “a page that lists my games”. Then ask me to change one thing at a time — small, named changes are what I follow best.",
+    },
+  ];
+
+  function explainFor(prompt) {
+    const l = String(prompt || "").toLowerCase();
+
+    // a named game in the library
+    const game = libraryList().find((g) => g.title && l.includes(g.title.toLowerCase()));
+    if (game && !/^(make|build|create|add|change|rewrite|replace|turn|generate)/.test(l)) {
+      return (
+        `**${game.title}** — ${game.genre} game in your library\n\n` +
+        `${game.pitch || game.description || "One of your own builds."}\n\n` +
+        `It lives in \`games/${game.id}/\` and opens from its card's **Play** link. Since it is a real file of your own code, I treat it as the source of truth: **Edit with AI** gives you a fresh build in a known shape, and you choose whether to save it over this game (*Save to ${game.title}*) or keep the original (*Save as new game*, *Restore original*).\n\nAsk me something like “how does a game loop work” or “why do my edits replace the build” and I'll explain that part.`
+      );
     }
-    if (/database|backend|api|save|persist|storage/.test(t)) {
-      return "**Make it stick**\n\nStart with `localStorage` for prototypes — zero setup, survives refreshes. When you need multiple users, move to a small API (Node + SQLite or Supabase) and keep the same data shape so the UI barely changes.";
+
+    for (const entry of EXPLANATIONS) {
+      if (!entry.test.test(l)) continue;
+      const text = entry.say();
+      if (!text) continue;
+      // defining words inside a phrase like "make it 3d" should not steal a build order
+      return text;
     }
-    if (/deploy|ship|publish|host|online/.test(t)) {
-      return "**Ship it**\n\nA static starter like this goes live on Netlify, Vercel or GitHub Pages by dropping the file in a repo. Add a small `index.html`, push, and connect the repo to the host — no server needed until you add a database.";
-    }
-    if (/monet|price|pay|subscription/.test(t)) {
-      return "**Charging for it**\n\nGate one genuinely useful feature, not the whole app. Use a hosted checkout (Stripe Checkout is the least code) and verify payments on a server — never trust a client-side 'paid' flag.";
-    }
-    return null;
+
+    if (current && /\b(it|this|that|the)\b/.test(l)) return explainPlan();
+
+    return (
+      "I'm a planner made of templates, so I answer from explanations I carry rather than from general knowledge. Ask me about:\n\n" +
+      "• the game loop and `requestAnimationFrame`\n" +
+      "• what a canvas is and how drawing works\n" +
+      "• collisions, score, restart, timers\n" +
+      "• keyboard and touch controls\n" +
+      "• saving with `localStorage` (or a real database)\n" +
+      "• login, roles and why a browser-side gate isn't security\n" +
+      "• installing the app, hosting it, three.js, debugging\n\n" +
+      "Or say **make …** and I'll build instead — e.g. “make a math quiz”."
+    );
   }
 
   function respond(prompt) {
@@ -997,12 +1153,9 @@ render();
 
     setTimeout(() => {
       hideTyping();
-      const wordCount = trimmed.split(/\s+/).length;
-      // only treat short, question-shaped messages as follow-ups on the current plan
-      const isFollowUp = /\?|^(how|what|can|should|where|why|do i|does|is it|add|make it|next)\b/i.test(trimmed);
-      const advice = current && wordCount <= 9 && isFollowUp ? adviceFor(trimmed) : null;
-      if (advice) {
-        addMessage("ai", advice);
+      // A question gets an explanation; orders still build.
+      if (isQuestion(trimmed)) {
+        addMessage("ai", explainFor(trimmed));
         busy = false;
         return;
       }
