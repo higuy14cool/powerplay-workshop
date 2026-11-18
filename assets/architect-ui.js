@@ -99,6 +99,102 @@ size();draw(performance.now());
       },
     },
     {
+      id: "sports",
+      match: ["sports", "sport", "football", "soccer", "basketball", "hockey", "tennis", "penalty", "goal", "kick", "tournament", "league", "team", "cup", "season", "classic match", "coach", "match"],
+      icon: "◎",
+      name: "Matchday",
+      tagline: "A five-shot match: pick your corner and beat the keeper.",
+      features: [
+        "Space, click or tap to strike the ball where the marker sits",
+        "The keeper drifts and speeds up after every shot",
+        "Five shots, goals counted, a full-time screen with replay",
+        "One canvas, no images, works with a mouse, a key or a thumb",
+      ],
+      screens: ["Kick-off", "Shots", "Full time"],
+      stack: ["HTML", "Canvas 2D", "Vanilla JS", "requestAnimationFrame"],
+      data: [["shots", "number"], ["goals", "number"], ["aim", "0–1 across the goal"], ["keeper", "0–1 across the goal"]],
+      steps: [
+        ["Draw the goal", "Two posts, a net grid and a keeper are enough to read as football."],
+        ["Add the aim", "Sweep a marker across the mouth of the goal on a sine or ping-pong value."],
+        ["Judge the shot", "Compare the aim with the keeper's position — inside the reach is a save."],
+        ["End the match", "Five shots, a scoreline, and a replay button that resets everything."],
+      ],
+      html() {
+        const script = `
+var cv=document.getElementById("cv"),cx=cv.getContext("2d");
+var goalsEl=document.getElementById("goals"),shotsEl=document.getElementById("shots");
+var over=false,taken=false,raf=0,last=0,aim=.5,dir=1,keeper=.5,vel=.006,shots=5,goals=0,flash=0,msg="";
+function reset(){shots=5;goals=0;over=false;taken=false;aim=.5;dir=1;keeper=.5;vel=.006;flash=0;msg="";
+  goalsEl.textContent="0";shotsEl.textContent="5";document.getElementById("over").style.display="none"}
+function shoot(){
+  if(over||taken||shots<=0)return;
+  taken=true;shots--;shotsEl.textContent=shots;
+  if(Math.abs(aim-keeper)>.13){goals++;goalsEl.textContent=goals;msg="GOAL";}
+  else{msg="SAVED";}
+  flash=34;vel=(Math.random()<.5?-1:1)*(.005+Math.random()*.007);
+  setTimeout(function(){
+    taken=false;msg="";
+    if(shots<=0){
+      over=true;var o=document.getElementById("over");o.style.display="flex";
+      o.innerHTML='<h2 style="margin:0 0 6px;font-size:26px">'+goals+' / 5</h2><p class="sub">Full time.</p><button class="btn" id="again">Play again</button>';
+      document.getElementById("again").onclick=reset;
+    }
+  },700);
+}
+function step(t){
+  var r=cv.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2);
+  if(cv.width!==Math.round(r.width*d)||cv.height!==Math.round(r.height*d)){cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);}
+  cx.setTransform(d,0,0,d,0,0);
+  var dt=Math.min((t-last)/16.7,3);last=t;
+  var w=r.width,h=r.height;
+  if(!over&&!taken){
+    aim+=dir*.012*dt;if(aim>.88){aim=.88;dir=-1}if(aim<.12){aim=.12;dir=1}
+    keeper+=vel*dt;if(keeper>.82){keeper=.82;vel=-Math.abs(vel)}if(keeper<.18){keeper=.18;vel=Math.abs(vel)}
+  }
+  if(flash>0)flash-=dt;
+  for(var i=0;i<6;i++){cx.fillStyle=i%2?"#0e2116":"#0c1d13";cx.fillRect(0,i*h/6,w,h/6+1)}
+  var gx=w*.1,gy=h*.1,gw=w*.8,gh=h*.42;
+  cx.strokeStyle="#e9eef8";cx.lineWidth=Math.max(2,w*.006);cx.strokeRect(gx,gy,gw,gh);
+  cx.globalAlpha=.22;cx.lineWidth=Math.max(1,w*.002);
+  for(var j=1;j<6;j++){cx.beginPath();cx.moveTo(gx+j*gw/6,gy);cx.lineTo(gx+j*gw/6,gy+gh);cx.stroke()}
+  for(var k=1;k<4;k++){cx.beginPath();cx.moveTo(gx,gy+k*gh/4);cx.lineTo(gx+gw,gy+k*gh/4);cx.stroke()}
+  cx.globalAlpha=1;
+  var kx=gx+keeper*gw,ky=gy+gh*.55;
+  cx.fillStyle="#8a91a6";cx.fillRect(kx-w*.035,ky-gh*.28,w*.07,gh*.5);
+  cx.beginPath();cx.arc(kx,ky-gh*.32,w*.022,0,7);cx.fill();
+  if(!taken&&!over){
+    var ax=gx+aim*gw;
+    cx.fillStyle="#b8ff3d";cx.beginPath();cx.moveTo(ax,gy+gh+4);cx.lineTo(ax-w*.018,gy+gh+18);cx.lineTo(ax+w*.018,gy+gh+18);cx.closePath();cx.fill();
+  }
+  if(!taken){cx.fillStyle="#fff";cx.beginPath();cx.arc(w*.5,h*.84,w*.022,0,7);cx.fill()}
+  if(msg){
+    cx.fillStyle=msg==="GOAL"?"#b8ff3d":"#ff6b6b";
+    cx.font="700 "+Math.round(w*.07)+"px Inter,system-ui,sans-serif";cx.textAlign="center";
+    cx.fillText(msg,w/2,h*.75);cx.textAlign="start";
+  }
+  raf=requestAnimationFrame(step);
+}
+document.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();shoot()}});
+cv.addEventListener("click",shoot);
+document.getElementById("start").onclick=function(){reset();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(step)};
+`;
+        return page(
+          "Matchday — sports match",
+          "#b8ff3d",
+          `.stage{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.09);background:#07080d}
+           canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:pointer}
+           #over{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,7,11,.82);text-align:center;gap:6px}
+           .hud{display:flex;gap:8px;margin-bottom:10px}
+           .hud span{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8a91a6;border:1px solid rgba(255,255,255,.12);border-radius:99px;padding:4px 10px}
+           .hud b{color:#b8ff3d;margin-left:4px}`,
+          `<h1>Matchday</h1><p class="sub">Tap or press space to strike where the marker sits.</p>
+  <div class="hud"><span>goals<b id="goals">0</b></span><span>shots left<b id="shots">5</b></span></div>
+  <div class="stage"><canvas id="cv"></canvas><div id="over"><button class="btn" id="start">Kick off</button></div></div>`,
+          script
+        );
+      },
+    },
+    {
       id: "shooter",
       match: ["shooter", "shoot", "space", "alien", "enemy", "laser", "blaster", "invader"],
       icon: "▲",
@@ -259,7 +355,7 @@ size();last=performance.now();raf=requestAnimationFrame(step);
     },
     {
       id: "memory",
-      match: ["memory", "match", "pairs", "cards", "flip", "concentration", "matching"],
+      match: ["memory", "memory match", "pairs", "cards", "flip", "concentration", "matching"],
       icon: "▣",
       name: "Pairup",
       tagline: "A memory game: flip two cards, find the pairs.",
@@ -733,7 +829,15 @@ render();
   // A prompt that names a game type gets that build; otherwise the arcade loop.
   function pickGameArchetype(prompt) {
     const a = detect(prompt);
-    return a && ["shooter", "runner", "memory", "game"].includes(a.id) ? a : null;
+    return a && ["shooter", "runner", "memory", "sports"].includes(a.id) ? a : null;
+  }
+
+  // Editing keeps the game's own shape: a sports game stays a sports game.
+  const GENRE_ARCHETYPE = { sports: "sports", puzzle: "memory", arcade: "game", sandbox: "game", prototypes: "game" };
+  function genreArchetype(game) {
+    const genre = String((game && game.genre) || "").toLowerCase();
+    const id = GENRE_ARCHETYPE[genre] || "game";
+    return ARCHETYPES.find((a) => a.id === id) || ARCHETYPES[0];
   }
 
   function escapeHtml(v) {
@@ -912,8 +1016,8 @@ render();
       }
 
       // Editing a library game always yields a playable game build, never a tracker or timer.
-      const gameArchetype = editingGame ? pickGameArchetype(trimmed) : null;
-      const plan = buildPlan(trimmed, editingGame ? (gameArchetype ? gameArchetype.id : "game") : null);
+      const gameArchetype = editingGame ? pickGameArchetype(trimmed) || genreArchetype(editingGame) : null;
+      const plan = buildPlan(trimmed, gameArchetype ? gameArchetype.id : null);
       if (editingGame) {
         const title = escapeHtml(editingGame.title);
         plan.name = editingGame.title;
@@ -923,7 +1027,7 @@ render();
       }
       renderPlan(plan);
       // Games land on the code tab, where Save to game / Save as new game live.
-      const isGamePlan = ["game", "shooter", "runner", "memory"].includes(plan.archetype.id);
+      const isGamePlan = ["game", "shooter", "runner", "memory", "sports"].includes(plan.archetype.id);
       switchTab(editingGame || isGamePlan ? "code" : "plan");
 
       const stackNote = plan.mentions.length
@@ -936,7 +1040,9 @@ render();
       addMessage(
         "ai",
         editingGame
-          ? `Here is a **${plan.archetype.name}** build for **${plan.name}**: ${plan.archetype.tagline.toLowerCase()} I read “${trimmed}” as the direction and shaped the loop around it.\n\nBe clear about what this is: it is a fresh, self-contained game in the same shape, not a patch of your original ${plan.name} file — the Architect has no model behind it, so it cannot rewrite your Three.js code. **Save as new game** keeps ${plan.name} untouched; **Save to ${plan.name}** swaps its playable build for this one, and *Restore original* puts the shipped version back.`
+          ? `Here is a **${plan.archetype.name}** build for **${plan.name}** — ${plan.archetype.tagline.toLowerCase()}
+
+It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${plan.name} is a ${editingGame.genre} game and your wording did not name a game shape I know` : `your wording asked for that shape`}; if you meant a different shape, name it (“a space shooter”, “an endless runner”, “a memory game”, “a sports match”).\n\nBe clear about what this is: it is a fresh, self-contained game in the same shape, not a patch of your original ${plan.name} file — the Architect has no model behind it, so it cannot rewrite your Three.js code. **Save as new game** keeps ${plan.name} untouched; **Save to ${plan.name}** swaps its playable build for this one, and *Restore original* puts the shipped version back.`
           : `Locked the blueprint for **${plan.name}** — ${plan.features.length} features, ${plan.screens.length} screens, and a working starter.${stackNote}${featureNote}\n\nThe **Plan** tab has the build order; **Code** has the full HTML file; **Preview** runs it right here. Want me to break down any step or add something like auth or saving?`
       );
       busy = false;
