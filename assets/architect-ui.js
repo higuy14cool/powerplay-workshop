@@ -435,8 +435,8 @@ render();
     supabase: "Supabase",
   };
 
-  function buildPlan(prompt) {
-    const archetype = detect(prompt);
+  function buildPlan(prompt, forcedId) {
+    const archetype = (forcedId && ARCHETYPES.find((a) => a.id === forcedId)) || detect(prompt);
     const customName = extractName(prompt);
     const lower = prompt.toLowerCase();
     const mentioned = Object.keys(STACK_HINTS).filter((k) => lower.includes(k));
@@ -478,6 +478,18 @@ render();
   const codeFilename = $("#codeFilename");
   let current = null;
   let busy = false;
+  let editingGame = null;
+  const saveBtn = $("#saveToGame");
+
+  function setEditingGame(game) {
+    editingGame = game || null;
+    if (!saveBtn) return;
+    saveBtn.hidden = !editingGame;
+    if (editingGame) {
+      saveBtn.textContent = `Save to ${editingGame.title}`;
+      saveBtn.title = `Replace ${editingGame.title}'s build with the code below`;
+    }
+  }
 
   function escapeHtml(v) {
     return String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({
@@ -596,6 +608,7 @@ render();
     codeOutput.textContent = plan.code;
     previewFrame.setAttribute("srcdoc", plan.code);
     current = plan;
+    if (editingGame && saveBtn) saveBtn.textContent = `Save to ${editingGame.title}`;
 
     // bring the blueprint into view on small screens
     if (window.innerWidth < 1080) {
@@ -652,9 +665,18 @@ render();
         return;
       }
 
-      const plan = buildPlan(trimmed);
+      // Editing a library game keeps the arcade-game archetype, whatever the wording.
+      const plan = buildPlan(trimmed, editingGame ? "game" : null);
+      if (editingGame) {
+        const title = escapeHtml(editingGame.title);
+        plan.name = editingGame.title;
+        plan.code = plan.code
+          .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
+          .replace(/<h1>[^<]*<\/h1>/, `<h1>${title}</h1>`);
+      }
       renderPlan(plan);
-      switchTab("plan");
+      // While editing a game, land on the code so the save button is in reach.
+      switchTab(editingGame ? "code" : "plan");
 
       const stackNote = plan.mentions.length
         ? ` I kept your ${plan.mentions.join(" / ")} preference in the stack and used a vanilla reference build for the starter.`
@@ -679,6 +701,7 @@ render();
   function resetChat() {
     chatLog.innerHTML = "";
     current = null;
+    setEditingGame(null);
     previewFrame.removeAttribute("srcdoc");
     codeOutput.textContent = "";
     $("#bpTitle").textContent = "Blueprint";
@@ -729,6 +752,19 @@ render();
     resetChat();
   });
 
+  saveBtn.addEventListener("click", () => {
+    if (!editingGame) return;
+    if (!current || !current.code) {
+      if (window.PowerplayApp) window.PowerplayApp.toast("Nothing to save yet — ask for a change first.", "err");
+      return;
+    }
+    const game = window.PowerplayApp && window.PowerplayApp.applyBuild
+      ? window.PowerplayApp.applyBuild(editingGame.id, current.code)
+      : null;
+    if (game) saveBtn.textContent = `Saved to ${game.title}`;
+    else if (window.PowerplayApp) window.PowerplayApp.toast("That game is no longer in the library.", "err");
+  });
+
   $("#copyCode").addEventListener("click", async () => {
     if (!current) return;
     try {
@@ -773,8 +809,9 @@ render();
   /* ---------- edit an existing game ---------- */
   function editGame(game) {
     if (!game) return;
-    const label = game.genre ? game.genre.toLowerCase() : "game";
-    input.value = `Add a new feature to ${game.title} (${label}): `;
+    setEditingGame(game);
+    const label = game.genre ? game.genre.toLowerCase() : "arcade";
+    input.value = `Add a new feature to ${game.title}, a ${label} game: `;
     autoGrow();
     const panel = document.getElementById("architect");
     if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });

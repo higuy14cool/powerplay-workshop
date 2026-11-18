@@ -314,7 +314,7 @@
           <div class="game-stats">
             <span><b>${formatNum(game.plays || 0)}</b> plays</span>
             <span><b>${(game.hours || 0).toFixed(1)}h</b> played</span>
-            <span>${escapeHtml(game.updated || "just now")}</span>
+            <span>${game.build ? '<em class="edited-chip">edited build</em>' : escapeHtml(game.updated || "just now")}</span>
           </div>
         </div>`;
       grid.appendChild(card);
@@ -381,7 +381,7 @@
     $("#gameModalMeta").innerHTML = `
       <div class="meta-cell"><span>plays</span><b>${(game.plays || 0).toLocaleString("en-US")}</b></div>
       <div class="meta-cell"><span>hours</span><b>${(game.hours || 0).toFixed(1)}</b></div>
-      <div class="meta-cell"><span>engine</span><b>${game.url ? "HTML5" : "Prototype"}</b></div>
+      <div class="meta-cell"><span>build</span><b>${game.build ? "Edited" : game.url ? "Original" : "Prototype"}</b></div>
       <div class="meta-cell"><span>updated</span><b>${escapeHtml(game.updated || "just now")}</b></div>`;
 
     const art = $("#gameModalArt");
@@ -392,11 +392,46 @@
     });
 
     const playBtn = $("#playGameBtn");
-    playBtn.hidden = !game.url;
+    playBtn.hidden = !(game.url || game.build);
     $("#editGameBtn").hidden = false;
+    $("#revertGameBtn").hidden = !game.build;
     $("#deleteGameBtn").hidden = false;
 
     openModal("game");
+  }
+
+  /* ---------- edited builds ---------- */
+  function openBuild(game) {
+    const blob = new Blob([game.build], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank");
+    if (!win) toast("Pop-up blocked — allow pop-ups for this page to play.", "err");
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  // Replaces the playable version of a game with generated HTML; the original stays restorable.
+  function applyBuild(id, code) {
+    const game = state.games.find((g) => g.id === id);
+    if (!game || !code) return null;
+    game.build = String(code);
+    game.editedAt = new Date().toISOString();
+    game.updated = "just now";
+    saveGames();
+    renderLibrary();
+    toast(`${game.title} replaced — Play now opens the new build.`);
+    return game;
+  }
+
+  function revertBuild(id) {
+    const game = state.games.find((g) => g.id === id);
+    if (!game || !game.build) return null;
+    delete game.build;
+    delete game.editedAt;
+    game.updated = "just now";
+    saveGames();
+    renderLibrary();
+    toast(`${game.title} restored to its original build.`);
+    return game;
   }
 
   /* ---------- modals ---------- */
@@ -554,7 +589,14 @@
       const game = state.activeGame;
       closeModal("game");
       if (!game) return;
-      if (game.url) window.open(game.url, "_blank", "noopener");
+      if (game.build) openBuild(game);
+      else if (game.url) window.open(game.url, "_blank", "noopener");
+    });
+    $("#revertGameBtn").addEventListener("click", () => {
+      const game = state.activeGame;
+      if (!game) return;
+      const restored = revertBuild(game.id);
+      if (restored) openGame(restored.id);
     });
 
     $$("[data-close]").forEach((el) => {
@@ -583,6 +625,8 @@
       openGame,
       openModal,
       closeModal,
+      applyBuild,
+      revertBuild,
       escapeHtml,
       formatNum,
       getGames: () => state.games.slice(),
