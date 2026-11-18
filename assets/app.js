@@ -552,6 +552,16 @@
     renderStats();
   }
 
+  function addPlay(id) {
+    const game = state.games.find((g) => g.id === id);
+    if (!game) return;
+    game.plays = (game.plays || 0) + 1;
+    game.hours = Number(((game.hours || 0) + 1 / 60).toFixed(3));
+    game.updated = "just now";
+    saveGames();
+    renderLibrary();
+  }
+
   function renderStats() {
     const games = scopedGames();
     const plays = games.reduce((sum, g) => sum + (g.plays || 0), 0);
@@ -871,6 +881,12 @@
       const game = state.activeGame;
       closeModal("game");
       if (!game) return;
+      // The stage plays it in place, with an Edit button in the corner.
+      if (window.PowerplayStage) {
+        window.PowerplayStage.open(game);
+        addPlay(game.id);
+        return;
+      }
       if (game.build) openBuild(game);
       else if (game.url) window.open(game.url, "_blank", "noopener");
     });
@@ -901,10 +917,19 @@
       }, 180);
     });
 
+    if (window.PowerplayStage) window.PowerplayStage.bind();
+
     // public hooks used by the game + architect modules
     window.PowerplayApp = {
       toast,
       openGame,
+      openStage(id) {
+        const game = state.games.find((g) => g.id === id);
+        if (game && window.PowerplayStage) {
+          window.PowerplayStage.open(game);
+          addPlay(game.id);
+        }
+      },
       openModal,
       closeModal,
       applyBuild,
@@ -916,15 +941,7 @@
       playLink,
       installLink,
       setGameScope,
-      addPlay(id) {
-        const game = state.games.find((g) => g.id === id);
-        if (!game) return;
-        game.plays = (game.plays || 0) + 1;
-        game.hours = Number(((game.hours || 0) + 1 / 60).toFixed(3));
-        game.updated = "just now";
-        saveGames();
-        renderLibrary();
-      },
+      addPlay,
     };
   }
 

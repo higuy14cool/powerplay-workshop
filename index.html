@@ -536,6 +536,52 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   </div>
 </div>
 
+<!-- the stage: play a game in place, then edit it by hand -->
+<div class="play-stage" id="playStage" aria-label="Game stage" hidden>
+  <div class="stage-bar">
+    <strong id="stageTitle">Game</strong>
+    <span class="stage-status" id="stageStatus">Playing</span>
+    <div class="stage-tools">
+      <a class="btn btn-ghost btn-tiny" id="stageOpenTab" href="#" target="_blank" rel="noopener">Open in new tab</a>
+      <button class="btn btn-ghost btn-tiny" id="stageEdit" type="button">
+        <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Edit
+      </button>
+      <button class="icon-btn" id="stageClose" type="button" aria-label="Close the stage" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="stage-body" id="stageBody">
+    <iframe id="playFrame" title="The game" allow="autoplay; fullscreen; gamepad; clipboard-write"></iframe>
+    <div class="edit-layer" id="editLayer" aria-label="Added pieces"></div>
+    <div class="edit-tools" id="editTools" hidden>
+      <button class="edit-tool" type="button" data-tool="selection">Add selection</button>
+      <button class="edit-tool" type="button" data-tool="mode">Add mode</button>
+      <button class="edit-tool" type="button" data-tool="game">Add game</button>
+      <button class="edit-tool" type="button" data-tool="box">Add box</button>
+      <button class="edit-tool edit-done" id="editDone" type="button">Done</button>
+    </div>
+    <p class="edit-tip" id="editTip" hidden>Tap where it should go.</p>
+  </div>
+</div>
+
+<div class="modal" id="formatModal" role="dialog" aria-modal="true" aria-labelledby="formatTitle" hidden>
+  <div class="modal-backdrop" data-close-format></div>
+  <div class="modal-card format-card">
+    <p class="eyebrow">// add game</p>
+    <h3 id="formatTitle">Which game?</h3>
+    <p class="muted">Pick the match you want on this stage.</p>
+    <div class="format-list">
+      <button class="format-opt" type="button" data-format="Futsal">Futsal</button>
+      <button class="format-opt" type="button" data-format="Classic match">Classic match</button>
+      <button class="format-opt" type="button" data-format="Classic match tournament">Classic match tournament</button>
+      <button class="format-opt" type="button" data-format="2v2 match tournament">2v2 match tournament</button>
+    </div>
+    <button class="btn btn-ghost" type="button" data-close-format>Cancel</button>
+  </div>
+</div>
+
 <script src="assets/games-data.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/architect.js"></script>
@@ -544,6 +590,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   <script src="assets/architect-ui.js"></script>
 <script src="assets/accounts-data.js"></script>
 <script src="assets/accounts.js"></script>
+<script src="assets/stage.js"></script>
 <script src="assets/app-mode.js"></script>
 </body>
 </html>
