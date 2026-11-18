@@ -506,3 +506,15 @@ a.btn{text-decoration:none}
   color: var(--muted, #8b93a3);
   max-width: 46ch;
 }
+
+/* Which address this copy is running on — an installed app keeps the address it was
+   installed from, so this is the quickest way to spot a stale install. */
+.login-host {
+  margin: 10px 0 0;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted, #8b93a3);
+  opacity: .75;
+  word-break: break-all;
+}

@@ -562,6 +562,8 @@
 
   /* ---------- boot ---------- */
   document.addEventListener("DOMContentLoaded", () => {
+    const hostLine = $("#loginHost");
+    if (hostLine) hostLine.textContent = "Running on " + location.host;
     $("#loginForm").addEventListener("submit", onLogin);
     $("#navLogout").addEventListener("click", onLogout);
     const user = A.current();
