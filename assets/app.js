@@ -308,6 +308,12 @@
     return "";
   }
 
+  // Opening a game folder with ?install=1 turns on its own Install app button.
+  function installLink(game) {
+    if (!game.url) return "";
+    return game.url + (game.url.includes("?") ? "&" : "?") + "install=1";
+  }
+
   function gameLinkMarkup(game) {
     const href = playLink(game);
     if (!href) {
@@ -315,11 +321,19 @@
     }
     const safeHref = escapeHtml(href);
     const label = game.build ? `#play=${game.id}` : game.url;
+    const install = installLink(game);
+    const installMarkup = install
+      ? `<a class="game-link game-link-install" href="${escapeHtml(install)}" target="_blank" rel="noopener" title="Install ${escapeHtml(game.title)} as an app">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v9m0 0l-3.5-3.5M12 13l3.5-3.5M5 18h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Install app</span>
+            </a>`
+      : "";
     return `<div class="game-links">
             <a class="game-link" href="${safeHref}" target="_blank" rel="noopener">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7V5z" fill="currentColor"/></svg>
               <span>${escapeHtml(label)}</span>
             </a>
+            ${installMarkup}
             <button class="game-link-copy" type="button" data-copy="${safeHref}" aria-label="Copy the ${escapeHtml(game.title)} link" title="Copy link">Copy</button>
           </div>`;
   }
@@ -537,6 +551,13 @@
 
     const playBtn = $("#playGameBtn");
     playBtn.hidden = !(game.url || game.build);
+    const installBtn = $("#installGameBtn");
+    if (installBtn) {
+      const target = installLink(game);
+      installBtn.hidden = !target;
+      if (target) installBtn.href = target;
+      installBtn.title = `Install ${game.title} as an app`;
+    }
     $("#editGameBtn").hidden = false;
     $("#revertGameBtn").hidden = !game.build;
     $("#deleteGameBtn").hidden = false;
@@ -824,6 +845,7 @@
       formatNum,
       getGames: () => state.games.slice(),
       playLink,
+      installLink,
       setGameScope,
       addPlay(id) {
         const game = state.games.find((g) => g.id === id);
