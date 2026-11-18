@@ -111,6 +111,86 @@
     if (changed) save();
   }
 
+  /* The people as a file the site can ship, so a login works on any device. */
+  function fileText(extra) {
+    const users = state.users.map((u) => ({
+      id: u.id,
+      username: u.username,
+      passcode: u.passcode,
+      role: u.role,
+      assigned: (u.assigned || []).slice(),
+    }));
+    /* People the published file knows and this browser does not are kept, never
+       dropped: another device's workers must survive this device's backup. */
+    (Array.isArray(extra) ? extra : []).forEach((entry) => {
+      if (!entry || !String(entry.username || "").trim()) return;
+      /* A half-written entry is not a person: it could never sign in. */
+      if (String(entry.passcode || "").trim().length < 4) return;
+      const key = String(entry.username).trim().toLowerCase();
+      if (users.some((u) => String(u.username).trim().toLowerCase() === key)) return;
+      users.push({
+        id: entry.id || null,
+        username: String(entry.username).trim(),
+        passcode: String(entry.passcode || "").trim(),
+        role: entry.role === "admin" ? "admin" : "worker",
+        assigned: Array.isArray(entry.assigned) ? entry.assigned.slice() : [],
+      });
+    });
+    return (
+      "/* Accounts that ship with the site.\n" +
+      "   Anything listed here can sign in on any device, in any browser.\n" +
+      "   The app keeps this file up to date when automatic backup is on. */\n" +
+      "window.PowerplaySharedAccounts = " +
+      JSON.stringify({ users }, null, 2) +
+      ";\n"
+    );
+  }
+
+  /* Take the chats and messages out of a backup without losing what is already here.
+     Only adds, never overwrites, so pulling a backup twice is harmless. */
+  function mergeBackup(parsed) {
+    if (!parsed || typeof parsed !== "object") return 0;
+    let added = 0;
+    const known = new Set(state.messages.map((m) => m.id));
+    (Array.isArray(parsed.messages) ? parsed.messages : []).forEach((m) => {
+      if (!m || !m.id || !m.scope || known.has(m.id)) return;
+      const row = {
+        id: String(m.id),
+        scope: String(m.scope),
+        from: String(m.from || ""),
+        text: String(m.text || "").slice(0, 400),
+        at: Number(m.at) || Date.now(),
+      };
+      if (m.image) {
+        const pic = cleanImage(m.image);
+        if (pic) row.image = pic;
+      }
+      if (m.forwardedFrom) row.forwardedFrom = String(m.forwardedFrom);
+      if (m.editedAt) row.editedAt = Number(m.editedAt) || Date.now();
+      state.messages.push(row);
+      known.add(row.id);
+      added++;
+    });
+    if (!Array.isArray(state.chats)) state.chats = [];
+    const knownChats = new Set(state.chats.map((c) => c.id));
+    (Array.isArray(parsed.chats) ? parsed.chats : []).forEach((c) => {
+      if (!c || !c.id || knownChats.has(c.id) || !Array.isArray(c.members)) return;
+      const members = c.members.filter((id) => state.users.some((u) => u.id === id));
+      if (!members.length) return;
+      state.chats.push({
+        id: String(c.id),
+        name: String(c.name || "Chat").slice(0, 40),
+        members,
+        createdBy: c.createdBy || null,
+        at: Number(c.at) || Date.now(),
+      });
+      knownChats.add(c.id);
+      added++;
+    });
+    if (added) save();
+    return added;
+  }
+
   /* Bring accounts back from a saved account file — after an uninstall, or from a
      different browser. Matching is by username, so running it twice is harmless. */
   function importAccounts(list) {
@@ -584,6 +664,8 @@
     visibleScopes,
     createChat,
     chatFor,
+    fileText,
+    mergeBackup,
     canSeeScope,
     messages,
     sendMessage,

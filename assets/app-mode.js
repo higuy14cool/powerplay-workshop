@@ -718,20 +718,8 @@
      owner republish, so people added in this browser can sign in everywhere. */
   function downloadAccountFile() {
     if (!A.isAdmin()) return toast("Only admins can export accounts.", "err");
-    const users = A.users().map((u) => ({
-      id: u.id,
-      username: u.username,
-      passcode: u.passcode,
-      role: u.role,
-      assigned: (u.assigned || []).slice(),
-    }));
-    const body =
-      "/* Accounts that ship with the site.\n" +
-      "   Anything listed here can sign in on any device, in any browser.\n" +
-      "   Replace this file with an exported copy to publish more people. */\n" +
-      "window.PowerplaySharedAccounts = " +
-      JSON.stringify({ users }, null, 2) +
-      ";\n";
+    const users = A.users();
+    const body = A.fileText();
     const url = URL.createObjectURL(new Blob([body], { type: "text/javascript" }));
     const a = document.createElement("a");
     a.href = url;
@@ -754,12 +742,12 @@
     const users = A.users();
     const local = users.filter((u) => !shared.has(String(u.username || "").trim().toLowerCase()));
     if (!local.length) {
-      line.textContent = `All ${users.length} ${users.length === 1 ? "person is" : "people are"} saved to the site's account file, so an uninstall changes nothing.`;
+      line.textContent = `All ${users.length} ${users.length === 1 ? "person is" : "people are"} published with the site, so an uninstall changes nothing.`;
       return;
     }
     line.textContent =
-      `${local.length} of ${users.length} ${local.length === 1 ? "person is" : "people are"} saved only in this browser ` +
-      `(${local.map((u) => u.username).join(", ")}). Uninstalling the app or clearing site data removes them — press Save account file first.`;
+      `Saved automatically here — ${local.map((u) => u.username).join(", ")} ` +
+      `${local.length === 1 ? "is" : "are"} not published yet. Turn on GitHub backup below so an uninstall cannot lose ${local.length === 1 ? "them" : "them"}.`;
   }
 
   /* Read a saved account file back in, whatever wrapper it came in. */

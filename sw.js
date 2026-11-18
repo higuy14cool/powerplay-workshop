@@ -1,6 +1,6 @@
 /* POWERPLAY Workshop service worker — makes the workshop installable and
    keeps the shell working offline. Games carry their own workers. */
-const CACHE = "powerplay-workshop-v10";
+const CACHE = "powerplay-workshop-v11";
 const SHELL = [
   "./",
   "./index.html",
@@ -10,6 +10,7 @@ const SHELL = [
   "./assets/app.js",
   "./assets/app-mode.js",
   "./assets/accounts.js",
+  "./assets/autosave.js",
   "./assets/accounts-data.js",
   "./assets/games-data.js",
 ];

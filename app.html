@@ -474,13 +474,29 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <p class="form-error" id="assignError" hidden></p>
         <div class="board-list" id="boardList"></div>
         <div class="account-file">
+          <h4 class="backup-heading">Automatic backup</h4>
+          <p class="backup-state" id="backupState" data-state="local">Saved automatically in this browser.</p>
+          <details class="backup-setup">
+            <summary>Back up to GitHub — survives uninstalling the app</summary>
+            <form id="backupForm" class="stack">
+              <label class="field"><span>Repository</span><input id="backupRepo" value="higuy14cool/powerplay-workshop" placeholder="owner/repo" autocomplete="off" spellcheck="false"></label>
+              <label class="field"><span>Branch</span><input id="backupBranch" value="main" autocomplete="off" spellcheck="false"></label>
+              <label class="field"><span>GitHub token</span><input id="backupToken" type="password" placeholder="github_pat_…" autocomplete="off" spellcheck="false"></label>
+              <p class="hint-small">A fine-grained token with <strong>Contents: read and write</strong> on this one repository. It stays in this browser and is only ever sent to api.github.com.</p>
+              <label class="toggle-row"><input id="backupAuto" type="checkbox" checked><span>Back up automatically after every change</span></label>
+              <div class="backup-actions">
+                <button class="btn btn-lime" type="submit">Save &amp; back up now</button>
+                <button class="btn btn-ghost" id="backupNow" type="button" disabled>Back up now</button>
+                <button class="btn btn-ghost" id="backupPull" type="button">Restore from GitHub</button>
+              </div>
+            </form>
+          </details>
           <div class="account-file-actions">
             <button class="btn btn-ghost" id="accountsFile" type="button" hidden>Save account file</button>
             <button class="btn btn-ghost" id="accountsRestore" type="button" hidden>Restore from file</button>
             <input id="accountsRestoreInput" type="file" accept=".js,.json,text/javascript,application/json" hidden />
           </div>
           <p class="hint-small" id="accountsState"></p>
-          <p class="hint-small">People you add here live in this browser, so uninstalling the app or clearing site data removes them. Save the account file before you uninstall, then use Restore from file to bring everyone back.</p>
         </div>
       </section>
       <section class="workers-col chat-col">
@@ -616,6 +632,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   </div>
 </div>
 
+<script src="assets/autosave.js"></script>
 <script src="assets/games-data.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/architect.js"></script>
