@@ -393,6 +393,7 @@
 
     const playBtn = $("#playGameBtn");
     playBtn.hidden = !game.url;
+    $("#editGameBtn").hidden = false;
     $("#deleteGameBtn").hidden = false;
 
     openModal("game");
@@ -539,6 +540,16 @@
     $("#openAddGame").addEventListener("click", openAdd);
     $("#addGameForm").addEventListener("submit", handleAddSubmit);
     $("#deleteGameBtn").addEventListener("click", handleDelete);
+    $("#editGameBtn").addEventListener("click", () => {
+      const game = state.activeGame;
+      closeModal("game");
+      if (!game) return;
+      if (window.PowerplayArchitect && window.PowerplayArchitect.editGame) {
+        window.PowerplayArchitect.editGame(game);
+      } else {
+        document.getElementById("architect").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
     $("#playGameBtn").addEventListener("click", () => {
       const game = state.activeGame;
       closeModal("game");

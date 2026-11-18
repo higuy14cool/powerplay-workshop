@@ -763,6 +763,22 @@ render();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   });
 
+  /* ---------- edit an existing game ---------- */
+  function editGame(game) {
+    if (!game) return;
+    const label = game.genre ? game.genre.toLowerCase() : "game";
+    input.value = `Add a new feature to ${game.title} (${label}): `;
+    autoGrow();
+    const panel = document.getElementById("architect");
+    if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => input.focus({ preventScroll: true }), 420);
+    if (window.PowerplayApp) {
+      window.PowerplayApp.toast(`${game.title} loaded — say what to change, then press Enter.`);
+    }
+  }
+
+  window.PowerplayArchitect = { editGame };
+
   /* ---------- boot ---------- */
   addMessage(
     "ai",
