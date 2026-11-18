@@ -476,9 +476,39 @@
     if (!me) return;
     const admin = me.role === "admin";
     $("#assignForm").hidden = !admin;
+    $("#accountsFile").hidden = !admin;
     fillAssignForm();
     renderBoard();
     renderChat();
+  }
+
+  /* The published list of accounts (assets/accounts-data.js). Downloading it lets the
+     owner republish, so people added in this browser can sign in everywhere. */
+  function downloadAccountFile() {
+    if (!A.isAdmin()) return toast("Only admins can export accounts.", "err");
+    const users = A.users().map((u) => ({
+      id: u.id,
+      username: u.username,
+      passcode: u.passcode,
+      role: u.role,
+      assigned: (u.assigned || []).slice(),
+    }));
+    const body =
+      "/* Accounts that ship with the site.\n" +
+      "   Anything listed here can sign in on any device, in any browser.\n" +
+      "   Replace this file with an exported copy to publish more people. */\n" +
+      "window.PowerplaySharedAccounts = " +
+      JSON.stringify({ users }, null, 2) +
+      ";\n";
+    const url = URL.createObjectURL(new Blob([body], { type: "text/javascript" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "accounts-data.js";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast(`Account file with ${users.length} ${users.length === 1 ? "person" : "people"} downloaded.`, "ok");
   }
 
   /* ---------- add a person ---------- */
@@ -520,6 +550,7 @@
     $("#assignForm").addEventListener("submit", onAssign);
     $("#chatForm").addEventListener("submit", onSend);
     $("#personForm").addEventListener("submit", onPersonSubmit);
+    $("#accountsFile").addEventListener("click", downloadAccountFile);
     // the website's own "New game" button stays as-is for admins
     $("#openAddGame").addEventListener("click", (event) => {
       if (A.isAdmin()) return;

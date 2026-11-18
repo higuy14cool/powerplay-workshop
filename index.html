@@ -23,8 +23,8 @@
     <p class="eyebrow">// sign in</p>
     <h1>POWERPLAY Workshop</h1>
     <p class="login-lede">Your games, your team and the App Architect — sign in to open the workshop.</p>
-    <label class="field"><span>Username</span><input id="loginUser" name="username" autocomplete="username" required></label>
-    <label class="field"><span>Passcode</span><input id="loginPass" name="passcode" type="password" autocomplete="current-password" required></label>
+    <label class="field"><span>Username</span><input id="loginUser" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
+    <label class="field"><span>Passcode</span><input id="loginPass" name="passcode" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
     <p class="login-error" id="loginError" role="alert" hidden></p>
     <button class="btn btn-lime btn-lg" type="submit" id="loginBtn">Enter workshop</button>
     <p class="login-hint">Admins sign in with their own details; workers use the ones their admin gave them.</p>
@@ -347,8 +347,8 @@
       </button>
     </div>
     <form id="personForm" class="stack">
-      <label class="field"><span>Username</span><input id="personUser" required maxlength="24" placeholder="e.g. jordan"></label>
-      <label class="field"><span>Passcode</span><input id="personPass" required minlength="4" maxlength="24" placeholder="at least 4 characters"></label>
+      <label class="field"><span>Username</span><input id="personUser" required maxlength="24" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="e.g. jordan"></label>
+      <label class="field"><span>Passcode</span><input id="personPass" required minlength="4" maxlength="24" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="at least 4 characters"></label>
       <label class="field"><span>Role</span>
         <select id="personRole"><option value="worker">Worker</option><option value="admin">Admin</option></select>
       </label>
@@ -381,6 +381,10 @@
         </form>
         <p class="form-error" id="assignError" hidden></p>
         <div class="board-list" id="boardList"></div>
+        <div class="account-file">
+          <button class="btn btn-ghost" id="accountsFile" type="button" hidden>Account file</button>
+          <p class="hint-small">People you add here sign in on this browser. To let them sign in anywhere, download this file and send it to the workshop owner to publish.</p>
+        </div>
       </section>
       <section class="workers-col chat-col">
         <div class="chat-head">
@@ -438,6 +442,7 @@
 <script src="assets/app.js"></script>
 <script src="assets/architect.js"></script>
 <script src="assets/architect-ui.js"></script>
+<script src="assets/accounts-data.js"></script>
 <script src="assets/accounts.js"></script>
 <script src="assets/app-mode.js"></script>
 </body>

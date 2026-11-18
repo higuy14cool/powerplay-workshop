@@ -53,6 +53,55 @@
 
   let state = load();
 
+  /* Accounts published with the site (assets/accounts-data.js) exist on every device,
+     so a username and passcode created in one browser is not lost in another.
+     Accounts added in a browser stay in that browser until its account file is published
+     (Workers -> "Account file"). */
+  function mergeSharedAccounts() {
+    const shared = window.PowerplaySharedAccounts && window.PowerplaySharedAccounts.users;
+    if (!Array.isArray(shared) || !shared.length) return;
+    let changed = false;
+    shared.forEach((entry) => {
+      if (!entry || !String(entry.username || "").trim() || !String(entry.passcode || "").trim()) return;
+      const name = String(entry.username).trim();
+      const key = name.toLowerCase();
+      const role = entry.role === "admin" ? "admin" : "worker";
+      const pass = String(entry.passcode).trim();
+      const found = state.users.find((u) => String(u.username || "").trim().toLowerCase() === key);
+      if (!found) {
+        state.users.push({
+          id: entry.id || uid("u"),
+          username: name,
+          passcode: pass,
+          role,
+          avatar: null,
+          color: AVATAR_COLORS[state.users.length % AVATAR_COLORS.length],
+          assigned: Array.isArray(entry.assigned) ? entry.assigned.slice() : [],
+          theme: "lime",
+          customAccent: null,
+        });
+        changed = true;
+        return;
+      }
+      // The published list is the source of truth for what a login depends on.
+      const wantedPass = found.passcodeOverridden ? String(found.passcode || "").trim() : pass;
+      if (found.username !== name || String(found.passcode || "").trim() !== wantedPass || found.role !== role) {
+        found.username = name;
+        found.passcode = wantedPass;
+        found.role = role;
+        changed = true;
+      }
+      // Only fill in work when the published list says something and this browser knows nothing.
+      if (Array.isArray(entry.assigned) && entry.assigned.length && !(found.assigned || []).length) {
+        found.assigned = entry.assigned.slice();
+        changed = true;
+      }
+    });
+    if (changed) save();
+  }
+
+  mergeSharedAccounts();
+
   function load() {
     try {
       const raw = localStorage.getItem(KEY);
@@ -99,9 +148,17 @@
 
   function login(username, passcode) {
     const name = String(username || "").trim().toLowerCase();
-    const pass = String(passcode || "");
-    const user = state.users.find((u) => u.username.toLowerCase() === name && u.passcode === pass);
-    if (!user) return { ok: false, error: "That username and passcode don't match." };
+    const pass = String(passcode || "").trim();
+    const user = state.users.find(
+      (u) => String(u.username || "").trim().toLowerCase() === name && String(u.passcode || "").trim() === pass
+    );
+    if (!user) {
+      // The commonest cause is an account made in a different browser, so say it.
+      return {
+        ok: false,
+        error: "That username and passcode don't match here. Accounts added in another browser only work once the admin's account file is published.",
+      };
+    }
     state.currentUserId = user.id;
     save();
     return { ok: true, user };
@@ -115,11 +172,11 @@
   /* ---------- people (admin) ---------- */
   function addPerson({ username, passcode, role }) {
     const name = String(username || "").trim();
-    const pass = String(passcode || "");
+    const pass = String(passcode || "").trim();
     if (!isAdmin()) return { ok: false, error: "Only admins can add people." };
     if (name.length < 2) return { ok: false, error: "Username needs at least 2 characters." };
     if (pass.length < 4) return { ok: false, error: "Passcode needs at least 4 characters." };
-    if (state.users.some((u) => u.username.toLowerCase() === name.toLowerCase())) {
+    if (state.users.some((u) => String(u.username || "").trim().toLowerCase() === name.toLowerCase())) {
       return { ok: false, error: "That username is taken." };
     }
     const user = {
@@ -285,12 +342,14 @@
     const user = current();
     if (!user) return { ok: false, error: "Sign in first." };
     const name = String(username || "").trim();
-    const pass = String(passcode || "");
+    const pass = String(passcode || "").trim();
     if (name.length < 2) return { ok: false, error: "Username needs at least 2 characters." };
     if (pass.length < 4) return { ok: false, error: "Passcode needs at least 4 characters." };
-    if (state.users.some((u) => u.id !== user.id && u.username.toLowerCase() === name.toLowerCase())) {
+    if (state.users.some((u) => u.id !== user.id && String(u.username || "").trim().toLowerCase() === name.toLowerCase())) {
       return { ok: false, error: "That username is taken." };
     }
+    // A passcode changed here must survive the next load of the published account list.
+    if (pass !== user.passcode) user.passcodeOverridden = true;
     user.username = name;
     user.passcode = pass;
     save();
