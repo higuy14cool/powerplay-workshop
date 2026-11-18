@@ -84,6 +84,8 @@
 
   function showApp(user) {
     document.body.classList.remove("is-locked");
+    // the Architect's saved chats belong to this account, whichever way we got here
+    if (window.PowerplayChats) window.PowerplayChats.syncToAccount();
     const shell = $("#appShell");
     if (shell) shell.removeAttribute("inert");
     if ($("#loginScreen")) $("#loginScreen").hidden = true;

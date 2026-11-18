@@ -811,6 +811,7 @@ render();
   const codeFilename = $("#codeFilename");
   let current = null;
   let busy = false;
+  let restoring = false;
   let editingGame = null;
   const saveBtn = $("#saveToGame");
   const saveNewBtn = $("#saveAsNew");
@@ -883,6 +884,9 @@ render();
       <div class="bubble">${formatMessage(text)}</div>`;
     chatLog.appendChild(wrap);
     chatLog.scrollTop = chatLog.scrollHeight;
+    if (!restoring && window.PowerplayChats) {
+      window.PowerplayChats.record(role === "me" ? "me" : "ai", text);
+    }
     return wrap;
   }
 
@@ -916,7 +920,7 @@ render();
     }
   }
 
-  function renderPlan(plan) {
+  function renderPlan(plan, silent) {
     $("#bpTitle").textContent = plan.name;
     $("#bpSubtitle").textContent = plan.archetype.tagline;
     $("#codeFilename").textContent = plan.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".html";
@@ -981,9 +985,10 @@ render();
     current = plan;
     if (editingGame && saveBtn) saveBtn.textContent = `Save to ${editingGame.title}`;
     if (saveNewBtn) saveNewBtn.hidden = !!workerSession();
+    if (!silent && window.PowerplayChats) window.PowerplayChats.setPlan(plan);
 
     // bring the blueprint into view on small screens
-    if (window.innerWidth < 1080) {
+    if (!silent && window.innerWidth < 1080) {
       $("#blueprintPanel").scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
@@ -1250,6 +1255,7 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
 
   function resetChat() {
     chatLog.innerHTML = "";
+    if (window.PowerplayChats) window.PowerplayChats.startNew();
     current = null;
     setEditingGame(null);
     previewFrame.removeAttribute("srcdoc");
@@ -1409,9 +1415,28 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
 
   window.PowerplayArchitect = { editGame };
 
+  /* Replay a saved conversation, messages first, then its blueprint. */
+  function restoreSession(chat) {
+    if (!chat) return;
+    restoring = true;
+    chatLog.innerHTML = "";
+    current = null;
+    chat.messages.forEach((m) => addMessage(m.role, m.text));
+    restoring = false;
+    if (chat.plan) renderPlan(chat.plan, true);
+  }
+
+  if (window.PowerplayChats) window.PowerplayChats.onOpen(restoreSession);
+
   /* ---------- boot ---------- */
-  addMessage(
-    "ai",
-    "Welcome to the Architect. Describe an app or game — one sentence is enough — and I'll hand back a blueprint plus runnable starter code.\n\nWhat are we building?"
-  );
+  const savedChat = window.PowerplayChats ? window.PowerplayChats.restoreCurrent() : null;
+  if (savedChat) {
+    restoreSession(savedChat);
+  } else {
+    addMessage(
+      "ai",
+      "Welcome to the Architect. Describe an app or game — one sentence is enough — and I'll hand back a blueprint plus runnable starter code.\n\nWhat are we building?"
+    );
+  }
+  if (window.PowerplayChats) window.PowerplayChats.render();
 })();

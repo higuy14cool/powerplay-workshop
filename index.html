@@ -190,6 +190,18 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
           </button>
         </form>
         <p class="composer-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line</p>
+
+        <div class="saved-chats" id="savedChats" hidden>
+          <div class="saved-chats-head">
+            <strong>Saved chats</strong>
+            <div class="saved-chats-tools">
+              <button class="btn btn-ghost btn-tiny" id="chatsSave" type="button">Save chats</button>
+              <button class="btn btn-ghost btn-tiny" id="chatsLoad" type="button">Load chats</button>
+              <input id="chatsLoadInput" type="file" accept=".json,application/json" hidden />
+            </div>
+          </div>
+          <div class="saved-chats-row" id="savedChatsRow"></div>
+        </div>
       </div>
 
       <div class="panel blueprint-panel" id="blueprintPanel">
@@ -475,6 +487,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 <script src="assets/games-data.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/architect.js"></script>
+<script src="assets/architect-chats.js"></script>
 <script src="assets/architect-ui.js"></script>
 <script src="assets/accounts-data.js"></script>
 <script src="assets/accounts.js"></script>
