@@ -415,6 +415,7 @@ kbd{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.08);padd
   display:flex;align-items:center;gap:9px;padding:11px 18px;border-radius:999px;
   background:#eafccb;color:#12160a;font-size:13px;font-weight:600;box-shadow:0 16px 40px -12px rgba(0,0,0,.9);
   animation:toastIn .3s cubic-bezier(.2,.8,.3,1);
+  pointer-events:none; /* never swallow a tap on the message or button behind it */
 }
 .toast[hidden]{display:none}
 .toast.err{background:#ffd9e2;color:#3a0a17}

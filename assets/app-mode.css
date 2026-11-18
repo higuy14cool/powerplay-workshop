@@ -65,21 +65,21 @@ body:not(.is-locked) .login-screen{display:none}
 .avatar-lg{width:72px;height:72px;font-size:24px}
 
 /* ---------- team modals ---------- */
-.wide-card{max-width:1000px}
+.wide-card{max-width:none;width:min(1360px,calc(100vw - 44px))}
 .wide-card .modal-head{padding:24px 26px 0}
 .wide-card h3,.modal-card h3{margin:2px 0 0;font-size:20px}
 .modal-card .stack,.modal-card .theme-block{padding:0 26px 26px}
 .modal-card .stack{margin-top:18px}
 .workers-body{
-  display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:22px;
-  padding:18px 26px 26px;max-height:min(70vh,640px);
+  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.45fr);gap:26px;
+  padding:18px 30px 30px;min-height:min(72vh,760px);max-height:min(88vh,980px);
 }
 .workers-col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .workers-col h4{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
 .assign-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
 .assign-form select{padding:10px 11px;font-size:13.5px}
 .assign-form .btn{padding:10px 14px}
-.board-list{display:flex;flex-direction:column;gap:9px;overflow:auto;padding-right:4px}
+.board-list{display:flex;flex-direction:column;gap:9px;overflow:auto;padding-right:4px;flex:1;min-height:220px}
 .board-row{
   display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
   background:#0a0c14;border:1px solid var(--line);
@@ -105,15 +105,18 @@ body:not(.is-locked) .login-screen{display:none}
 }
 .scope-chip.is-active{background:var(--lime-soft);border-color:rgba(184,255,61,.45);color:var(--lime)}
 .chat-log{
-  flex:1;min-height:220px;max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:9px;
-  padding:12px;border-radius:14px;background:#080a11;border:1px solid var(--line);
+  flex:1;min-height:340px;max-height:none;overflow:auto;display:flex;flex-direction:column;gap:9px;
+  padding:14px;border-radius:14px;background:#080a11;border:1px solid var(--line);
 }
 .msg{max-width:82%;padding:9px 12px;border-radius:14px;background:#12151f;border:1px solid var(--line);font-size:13.5px;line-height:1.45}
 .msg.is-me{align-self:flex-end;background:var(--lime-soft);border-color:rgba(184,255,61,.35)}
 .msg small{display:block;margin-bottom:3px;font-size:11px;color:var(--muted-2)}
-.chat-form{display:grid;grid-template-columns:1fr auto;gap:8px}
+.chat-form{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
 .chat-form input{padding:11px 13px;font-size:14px}
 .chat-form .btn{padding:0 18px;height:44px}
+.chat-photo{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:#12151f;color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.chat-photo:hover{color:var(--lime);border-color:rgba(184,255,61,.45)}
+.chat-photo svg{width:20px;height:20px}
 
 /* ---------- profile modal ---------- */
 .profile-top{display:flex;align-items:center;gap:16px;padding:20px 26px 0}
@@ -128,7 +131,13 @@ body:not(.is-locked) .login-screen{display:none}
 .custom-accent input[type=color]{padding:4px;height:42px;cursor:pointer}
 
 @media (max-width:860px){
-  .workers-body{grid-template-columns:1fr;max-height:76vh;overflow:auto;padding:16px 18px 22px}
+  .wide-card{width:calc(100vw - 20px)}
+  .workers-body{grid-template-columns:1fr;min-height:0;max-height:82vh;overflow:auto;padding:16px 18px 22px}
+  .chat-log{min-height:300px;max-height:52vh}
+  #chatThread .msg-actions{opacity:1}
+  /* on a phone the field gets its own row above the buttons */
+  #chatThread .msg-edit{grid-template-columns:1fr 1fr}
+  #chatThread .msg-edit input{grid-column:1/-1}
   .chat-col{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:16px}
   .wide-card .modal-head{padding:20px 18px 0}
   .modal-card .stack,.modal-card .theme-block{padding:0 18px 22px}
@@ -136,3 +145,25 @@ body:not(.is-locked) .login-screen{display:none}
   .assign-form{grid-template-columns:1fr 1fr}
   .assign-form .btn{grid-column:1/-1}
 }
+
+/* ---------- team chat: pictures, editing, forwarding ---------- */
+#chatThread .msg{display:block;position:relative}
+/* a picture or the edit field needs a width to lay out in, so those bubbles get one */
+#chatThread .msg:has(.msg-pic){width:300px}
+#chatThread .msg:has(.msg-edit){width:340px}
+#chatThread .msg-text{white-space:pre-wrap;word-break:break-word}
+#chatThread .msg-pic{display:block;margin-top:6px;border-radius:10px;overflow:hidden;line-height:0}
+#chatThread .msg-pic img{display:block;width:100%;height:auto;max-height:260px;border-radius:10px;object-fit:cover}
+#chatThread .msg-fwd{display:block;font-size:11px;color:var(--lime);opacity:.85;margin-bottom:3px}
+#chatThread .msg-edited{display:block;margin-top:3px;font-size:10.5px;color:var(--muted-2)}
+#chatThread .msg-actions{display:flex;gap:6px;margin-top:6px;opacity:0;transition:opacity .15s}
+#chatThread .msg:hover .msg-actions,#chatThread .msg:focus-within .msg-actions{opacity:1}
+#chatThread .msg-actions button{
+  font-size:11px;padding:3px 8px;border-radius:999px;cursor:pointer;
+  background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);
+}
+#chatThread .msg-actions button:hover{color:var(--text);border-color:rgba(184,255,61,.45)}
+#chatThread .msg-actions [data-act="delete"]:hover{color:#ff9aa4;border-color:rgba(255,120,130,.5)}
+#chatThread .msg-edit{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;margin-top:4px;align-items:center}
+#chatThread .msg-edit input{padding:8px 10px;font-size:13px;border-radius:9px;background:#0a0c14;border:1px solid var(--line);color:var(--text);min-width:0}
+#chatThread .msg-edit .btn{height:34px;padding:0 12px;font-size:12px}

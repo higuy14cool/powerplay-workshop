@@ -51,6 +51,16 @@
     };
   }
 
+  const IMAGE_LIMIT = 900 * 1024; // a picture has to fit next to the rest of the chat in localStorage
+
+  function cleanImage(image) {
+    if (!image || typeof image !== "object") return null;
+    const src = String(image.src || "");
+    if (!/^data:image\/(png|jpeg|webp|gif);base64,/i.test(src)) return null;
+    if (src.length > IMAGE_LIMIT) return null;
+    return { src, name: String(image.name || "picture").slice(0, 60) };
+  }
+
   let state = load();
 
   /* Accounts published with the site (assets/accounts-data.js) exist on every device,
@@ -146,7 +156,17 @@
       if (!raw) return seed();
       const data = JSON.parse(raw);
       if (!data || !Array.isArray(data.users) || !data.users.length) return seed();
-      data.messages = Array.isArray(data.messages) ? data.messages : [];
+      data.messages = (Array.isArray(data.messages) ? data.messages : [])
+        .filter((m) => m && m.id && m.scope)
+        .map((m) => {
+          m.text = String(m.text || "").slice(0, 400);
+          if (m.image) {
+            const pic = cleanImage(m.image);
+            if (pic) m.image = pic;
+            else delete m.image;
+          }
+          return m;
+        });
       data.users = data.users.map((u) => ({
         assigned: Array.isArray(u.assigned) ? u.assigned : [],
         theme: u.theme || "lime",
@@ -157,6 +177,12 @@
       }));
       return data;
     } catch (err) {
+      // Keep the unreadable copy instead of throwing it away with the next save.
+      console.warn("POWERPLAY could not read saved workshop data", err);
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) localStorage.setItem(KEY + ".recovered", raw);
+      } catch (ignored) {}
       return seed();
     }
   }
@@ -364,15 +390,72 @@
       .sort((a, b) => a.at - b.at);
   }
 
-  function sendMessage(scopeId, text) {
+  function sendMessage(scopeId, text, image) {
     const user = current();
-    const body = String(text || "").trim();
-    if (!user || !body) return { ok: false };
+    const body = String(text || "").trim().slice(0, 400);
+    if (!user) return { ok: false };
+    if (!body && !image) return { ok: false, error: "Write something or pick a picture." };
+    const pic = image ? cleanImage(image) : null;
+    if (image && !pic) {
+      const tooBig = String(image.src || "").length > IMAGE_LIMIT;
+      return { ok: false, error: tooBig ? "That picture is too big — try a smaller one." : "That picture can't be sent." };
+    }
     if (!canSeeScope(scopeId, user)) return { ok: false, error: "You can't post in that chat." };
-    const msg = { id: uid("m"), scope: scopeId, from: user.id, text: body.slice(0, 400), at: Date.now() };
+    const msg = { id: uid("m"), scope: scopeId, from: user.id, text: body, at: Date.now() };
+    if (pic) msg.image = pic;
     state.messages.push(msg);
     save();
     return { ok: true, message: msg };
+  }
+
+  function findMessage(id) {
+    return state.messages.find((m) => m.id === id) || null;
+  }
+
+  function canTouchMessage(msg) {
+    const user = current();
+    if (!user || !msg) return false;
+    if (!canSeeScope(msg.scope, user)) return false;
+    return msg.from === user.id || user.role === "admin";
+  }
+
+  /* Editing keeps the picture and marks the message so people know it changed. */
+  function editMessage(id, text) {
+    const msg = findMessage(id);
+    if (!canTouchMessage(msg)) return { ok: false, error: "You can't edit that message." };
+    const body = String(text || "").trim().slice(0, 400);
+    if (!body && !msg.image) return { ok: false, error: "A message can't be empty." };
+    msg.text = body;
+    msg.editedAt = Date.now();
+    save();
+    return { ok: true, message: msg };
+  }
+
+  function deleteMessage(id) {
+    const msg = findMessage(id);
+    if (!canTouchMessage(msg)) return { ok: false, error: "You can't delete that message." };
+    state.messages = state.messages.filter((m) => m.id !== id);
+    save();
+    return { ok: true };
+  }
+
+  function forwardMessage(id, scopeId) {
+    const msg = findMessage(id);
+    const user = current();
+    if (!msg || !canTouchMessage(msg)) return { ok: false, error: "You can't forward that message." };
+    if (!canSeeScope(scopeId, user)) return { ok: false, error: "You can't post in that chat." };
+    const copy = {
+      id: uid("m"),
+      scope: scopeId,
+      from: user.id,
+      text: msg.text,
+      at: Date.now(),
+      forwardedFrom: msg.from,
+    };
+    if (msg.image) copy.image = { ...msg.image };
+    state.messages.push(copy);
+    save();
+    return { ok: true, message: copy };
   }
 
   /* ---------- profile ---------- */
@@ -445,6 +528,10 @@
     canSeeScope,
     messages,
     sendMessage,
+    editMessage,
+    deleteMessage,
+    forwardMessage,
+    findMessage,
     updateProfile,
     setAvatar,
     setTheme,

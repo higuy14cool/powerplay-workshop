@@ -491,10 +491,25 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <div class="chat-log" id="chatThread"></div>
         <form class="chat-form" id="chatForm">
           <input id="chatInput" placeholder="Message the crew…" autocomplete="off" maxlength="400">
+          <button class="icon-btn chat-photo" id="chatPhotoBtn" type="button" aria-label="Send a picture" title="Send a picture">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z M4 15l4.5-4.5L13 15l2.5-2.5L20 17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="9" r="1.4" fill="currentColor"/></svg>
+          </button>
           <button class="btn btn-lime" type="submit">Send</button>
         </form>
+        <input id="chatPhotoInput" type="file" accept="image/*" hidden>
       </section>
     </div>
+  </div>
+</div>
+
+<!-- forward a chat message -->
+<div class="modal" id="forwardModal" role="dialog" aria-modal="true" aria-labelledby="forwardTitle" hidden>
+  <div class="modal-backdrop" data-close-forward></div>
+  <div class="modal-card format-card">
+    <p class="eyebrow">// forward</p>
+    <h3 id="forwardTitle">Forward to…</h3>
+    <div class="format-list" id="forwardList"></div>
+    <button class="btn btn-ghost" type="button" data-close-forward>Cancel</button>
   </div>
 </div>
 

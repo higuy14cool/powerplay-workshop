@@ -8,7 +8,7 @@
   const A = window.PowerplayAccounts;
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const state = { scope: "group", avatarDraft: undefined };
+  const state = { scope: "group", avatarDraft: undefined, editingId: null, forwardId: null };
   let booted = false;
 
   function esc(value) {
@@ -423,6 +423,7 @@
       btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.label;
       btn.addEventListener("click", () => {
         state.scope = scope.id;
+        state.editingId = null;
         renderChat();
       });
       wrap.appendChild(btn);
@@ -449,17 +450,195 @@
     }
     const byId = {};
     A.users().forEach((u) => (byId[u.id] = u));
+    const admin = me.role === "admin";
     msgs.forEach((m) => {
       const who = byId[m.from];
+      const mine = m.from === me.id;
       const bubble = document.createElement("div");
-      bubble.className = "msg" + (m.from === me.id ? " is-me" : "");
+      bubble.className = "msg" + (mine ? " is-me" : "");
+      bubble.dataset.msg = m.id;
+
       const label = document.createElement("small");
       const when = new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       label.textContent = `${who ? who.username : "Someone"} · ${when}`;
-      bubble.append(label, document.createTextNode(m.text));
+      bubble.append(label);
+
+      if (state.editingId === m.id) {
+        const form = document.createElement("form");
+        form.className = "msg-edit";
+        const field = document.createElement("input");
+        field.value = m.text || "";
+        field.maxLength = 400;
+        field.placeholder = "Edit your message…";
+        const save = document.createElement("button");
+        save.className = "btn btn-lime";
+        save.type = "submit";
+        save.textContent = "Save";
+        const cancel = document.createElement("button");
+        cancel.className = "btn btn-ghost";
+        cancel.type = "button";
+        cancel.textContent = "Cancel";
+        form.append(field, save, cancel);
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const res = A.editMessage(m.id, field.value);
+          if (!res.ok) return toast(res.error, "err");
+          state.editingId = null;
+          renderChat();
+          toast("Message edited", "ok");
+        });
+        cancel.addEventListener("click", () => {
+          state.editingId = null;
+          renderChat();
+        });
+        bubble.appendChild(form);
+        log.appendChild(bubble);
+        setTimeout(() => field.focus(), 0);
+        return;
+      }
+
+      if (m.forwardedFrom) {
+        const fwd = document.createElement("span");
+        fwd.className = "msg-fwd";
+        const src = byId[m.forwardedFrom];
+        fwd.textContent = `↪ forwarded from ${src ? src.username : "someone"}`;
+        bubble.appendChild(fwd);
+      }
+      if (m.text) {
+        const body = document.createElement("div");
+        body.className = "msg-text";
+        body.textContent = m.text;
+        bubble.appendChild(body);
+      }
+      if (m.image) {
+        const link = document.createElement("a");
+        link.className = "msg-pic";
+        link.href = m.image.src;
+        link.target = "_blank";
+        link.rel = "noopener";
+        const img = document.createElement("img");
+        img.src = m.image.src;
+        img.alt = m.image.name || "picture";
+        img.loading = "lazy";
+        link.appendChild(img);
+        bubble.appendChild(link);
+      }
+      if (m.editedAt) {
+        const mark = document.createElement("span");
+        mark.className = "msg-edited";
+        mark.textContent = "edited";
+        bubble.appendChild(mark);
+      }
+
+      const actions = document.createElement("div");
+      actions.className = "msg-actions";
+      if (mine || admin) {
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.dataset.act = "edit";
+        edit.addEventListener("click", () => {
+          state.editingId = m.id;
+          renderChat();
+        });
+        actions.appendChild(edit);
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "Delete";
+        del.dataset.act = "delete";
+        del.addEventListener("click", () => {
+          if (!window.confirm("Delete this message?")) return;
+          const res = A.deleteMessage(m.id);
+          if (!res.ok) return toast(res.error, "err");
+          renderChat();
+          toast("Message deleted", "ok");
+        });
+        actions.appendChild(del);
+      }
+      const fwdBtn = document.createElement("button");
+      fwdBtn.type = "button";
+      fwdBtn.textContent = "Forward";
+      fwdBtn.dataset.act = "forward";
+      fwdBtn.addEventListener("click", () => openForward(m.id));
+      actions.appendChild(fwdBtn);
+      bubble.appendChild(actions);
+
       log.appendChild(bubble);
     });
     log.scrollTop = log.scrollHeight;
+  }
+
+  /* ---------- forward a message to another chat ---------- */
+  function openForward(id) {
+    const msg = A.findMessage(id);
+    const me = A.current();
+    if (!msg || !me) return;
+    state.forwardId = id;
+    const list = $("#forwardList");
+    if (!list) return;
+    list.innerHTML = "";
+    A.visibleScopes()
+      .filter((scope) => scope.id !== msg.scope)
+      .forEach((scope) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "format-opt";
+        btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.label;
+        btn.addEventListener("click", () => {
+          const res = A.forwardMessage(id, scope.id);
+          closeModal("forward");
+          if (!res.ok) return toast(res.error, "err");
+          if (state.scope === scope.id) renderChat();
+          toast(`Forwarded to ${scope.kind === "dm" ? scope.label : scope.label}`, "ok");
+        });
+        list.appendChild(btn);
+      });
+    if (!list.children.length) {
+      list.innerHTML = '<p class="empty-note">There is nowhere else to forward it yet.</p>';
+    }
+    openModal("forward");
+  }
+
+  /* ---------- pictures ---------- */
+  function shrinkPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("read"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("decode"));
+        img.onload = () => {
+          const draw = (max, quality) => {
+            const scale = Math.min(1, max / Math.max(img.width, img.height));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(img.width * scale));
+            canvas.height = Math.max(1, Math.round(img.height * scale));
+            canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL("image/jpeg", quality);
+          };
+          let src = draw(1100, 0.78);
+          if (src.length > 700 * 1024) src = draw(820, 0.62);
+          if (src.length > 700 * 1024) src = draw(620, 0.5);
+          resolve({ src, name: file.name || "picture" });
+        };
+        img.src = String(reader.result);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function sendPhoto(file) {
+    const input = $("#chatInput");
+    try {
+      const pic = await shrinkPhoto(file);
+      const res = A.sendMessage(state.scope, input ? input.value : "", pic);
+      if (!res.ok) return toast(res.error || "Picture not sent.", "err");
+      if (input) input.value = "";
+      renderChat();
+      toast("Picture sent", "ok");
+    } catch (err) {
+      toast("That picture could not be read.", "err");
+    }
   }
 
   function onSend(event) {
@@ -470,6 +649,7 @@
     const res = A.sendMessage(state.scope, text);
     if (!res.ok) return toast(res.error || "Message not sent.", "err");
     input.value = "";
+    state.editingId = null;
     renderChat();
   }
 
@@ -607,6 +787,17 @@
     $("#navAddPerson").addEventListener("click", openPerson);
     $("#assignForm").addEventListener("submit", onAssign);
     $("#chatForm").addEventListener("submit", onSend);
+    const photoBtn = $("#chatPhotoBtn");
+    const photoInput = $("#chatPhotoInput");
+    if (photoBtn && photoInput) {
+      photoBtn.addEventListener("click", () => photoInput.click());
+      photoInput.addEventListener("change", () => {
+        const file = photoInput.files && photoInput.files[0];
+        photoInput.value = "";
+        if (file) sendPhoto(file);
+      });
+    }
+    $$("[data-close-forward]").forEach((el) => el.addEventListener("click", () => closeModal("forward")));
     $("#personForm").addEventListener("submit", onPersonSubmit);
     $("#accountsFile").addEventListener("click", downloadAccountFile);
     $("#accountsRestore").addEventListener("click", () => $("#accountsRestoreInput").click());
