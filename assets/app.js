@@ -372,14 +372,16 @@
   }
 
   function setupInstall() {
-    // GitHub Pages / localhost: this registration is what makes the workshop installable.
-    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    if ("serviceWorker" in navigator && location.protocol !== "file:" && !navigator.serviceWorker.controller) {
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     }
     const bar = document.querySelector(".topbar-right");
     if (!bar || $("#installApp")) return;
     const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    // iPadOS reports a Mac user agent, so a touch Mac counts as iOS here.
+    const isIOS =
+      /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+      (/macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
     const btn = document.createElement("button");
     btn.className = "btn btn-ghost install-btn";
     btn.id = "installApp";
@@ -399,30 +401,84 @@
     const buttons = gateBtn ? [btn, gateBtn] : [btn];
     const show = (on) => buttons.forEach((b) => (b.hidden = !on));
 
-    let prompt = null;
-    window.addEventListener("beforeinstallprompt", (e) => {
-      e.preventDefault();
-      prompt = e;
+    const hasPrompt = () => !!window.__ppInstall;
+    const ready = () => {
+      syncInstallNow();
       show(!standalone);
-    });
-    window.addEventListener("appinstalled", () => {
-      show(false);
-      toast("POWERPLAY installed — open it from your home screen.");
-    });
-    if (isIOS && !standalone) show(true); // Safari has no install event
+    };
+    document.addEventListener("pp-install-ready", ready);
+    // Always offered, like the games: with a browser prompt it installs in one tap,
+    // without one the sheet spells out the menu route.
+    show(!standalone);
+
+    function steps() {
+      const ua = navigator.userAgent;
+      if (isIOS) {
+        return [
+          "Open this page in Safari.",
+          "Tap the Share button (a box with an arrow).",
+          "Choose “Add to Home Screen”, then Add.",
+        ];
+      }
+      if (/android/i.test(ua)) {
+        return [
+          "If a prompt does not appear, tap the ⋮ menu in Chrome.",
+          "Choose “Install app” or “Add to Home screen”.",
+          "Confirm — POWERPLAY gets its own icon.",
+        ];
+      }
+      return [
+        "Chrome or Edge: click the install icon at the right of the address bar.",
+        "Then choose Install — POWERPLAY opens in its own window.",
+        "Firefox and Safari on a computer cannot install web apps.",
+      ];
+    }
+
+    function syncInstallNow() {
+      const now = $("#installNow");
+      if (!now) return;
+      now.hidden = !hasPrompt();
+      now.textContent = hasPrompt() ? "Install now" : "Not available in this browser";
+    }
+
+    function openSheet() {
+      const lede = $("#installLede");
+      if (lede) {
+        lede.textContent = hasPrompt()
+          ? "Tap Install now and confirm — it opens like a normal app, with its own icon and no address bar."
+          : "This browser will not install it from a button, but your home screen can. One of these works:";
+      }
+      const list = $("#installSteps");
+      if (list) list.innerHTML = steps().map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+      syncInstallNow();
+      openModal("install");
+    }
+
+    async function runPrompt() {
+      const ev = window.__ppInstall;
+      if (!ev) return false;
+      window.__ppInstall = null;
+      try {
+        ev.prompt();
+        const choice = await ev.userChoice;
+        closeModal("install");
+        show(false);
+        toast(choice && choice.outcome === "accepted" ? "Installing POWERPLAY…" : "Install cancelled — press Install app to try again.");
+      } catch (err) {
+        // A prompt can only be used once: fall back to the written steps.
+        openSheet();
+      }
+      return true;
+    }
+
     buttons.forEach((b) =>
-      b.addEventListener("click", async () => {
-        if (prompt) {
-          prompt.prompt();
-          const choice = await prompt.userChoice;
-          prompt = null;
-          show(false);
-          if (choice && choice.outcome === "accepted") toast("Installing POWERPLAY…");
-          return;
-        }
-        toast(isIOS ? "Tap Share, then “Add to Home Screen”." : "Open the browser menu and choose Install app / Add to Home screen.");
+      b.addEventListener("click", () => {
+        if (hasPrompt()) runPrompt();
+        else openSheet();
       })
     );
+    const now = $("#installNow");
+    if (now) now.addEventListener("click", () => (hasPrompt() ? runPrompt() : openSheet()));
   }
 
   function renderLibrary() {

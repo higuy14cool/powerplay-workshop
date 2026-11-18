@@ -10,6 +10,23 @@
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
 <link rel="manifest" href="app.webmanifest">
 <meta name="theme-color" content="#0a0b10">
+<script>
+/* Chrome fires this once, sometimes before the app's own script runs: keep it.
+   Registering the worker here too means the page is already installable when the
+   Install button is pressed instead of a moment later. */
+window.__ppInstall = null;
+window.addEventListener("beforeinstallprompt", function (e) {
+  e.preventDefault();
+  window.__ppInstall = e;
+  document.dispatchEvent(new Event("pp-install-ready"));
+});
+window.addEventListener("appinstalled", function () {
+  try { localStorage.setItem("powerplay.installed", "1"); } catch (err) {}
+});
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("sw.js").catch(function () {});
+}
+</script>
 <link rel="stylesheet" href="assets/styles.css">
 <link rel="stylesheet" href="assets/app-mode.css">
 </head>
@@ -329,6 +346,17 @@
       <button class="btn btn-ghost" type="button" data-close="reset">Keep it</button>
       <button class="btn btn-lime" type="button" id="confirmReset">Clear and start over</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="installModal" role="dialog" aria-modal="true" aria-labelledby="installModalTitle" hidden>
+  <div class="modal-backdrop" data-close="install"></div>
+  <div class="modal-card install-card">
+    <p class="eyebrow">// install</p>
+    <h3 id="installModalTitle">Install POWERPLAY Workshop</h3>
+    <p class="confirm-text" id="installLede">Add it to your home screen and it opens like a normal app — its own icon, no address bar.</p>
+    <button class="btn btn-lime install-now" type="button" id="installNow">Install now</button>
+    <ol class="install-steps" id="installSteps"></ol>
   </div>
 </div>
 
