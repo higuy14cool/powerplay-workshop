@@ -538,3 +538,6 @@ a.btn{text-decoration:none}
   color: var(--muted, #8b93a3);
 }
 .install-steps li::marker { color: var(--lime, #b6ff3d); }
+
+.account-file-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+#accountsState { color: var(--lime, #b6ff3d); }

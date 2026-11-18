@@ -100,6 +100,44 @@
     if (changed) save();
   }
 
+  /* Bring accounts back from a saved account file — after an uninstall, or from a
+     different browser. Matching is by username, so running it twice is harmless. */
+  function importAccounts(list) {
+    const rows = Array.isArray(list) ? list : [];
+    let added = 0, updated = 0;
+    rows.forEach((entry) => {
+      if (!entry || !String(entry.username || "").trim() || !String(entry.passcode || "").trim()) return;
+      const name = String(entry.username).trim();
+      const pass = String(entry.passcode).trim();
+      const role = entry.role === "admin" ? "admin" : "worker";
+      const found = state.users.find((u) => String(u.username || "").trim().toLowerCase() === name.toLowerCase());
+      if (!found) {
+        state.users.push({
+          id: entry.id || uid("u"),
+          username: name,
+          passcode: pass,
+          role,
+          avatar: null,
+          color: AVATAR_COLORS[state.users.length % AVATAR_COLORS.length],
+          assigned: Array.isArray(entry.assigned) ? entry.assigned.slice() : [],
+          theme: "lime",
+          customAccent: null,
+        });
+        added++;
+        return;
+      }
+      if (found.username !== name || found.passcode !== pass || found.role !== role) {
+        found.username = name;
+        found.passcode = pass;
+        found.role = role;
+        updated++;
+      }
+      if (Array.isArray(entry.assigned) && entry.assigned.length) found.assigned = entry.assigned.slice();
+    });
+    if (added || updated) save();
+    return { added, updated };
+  }
+
   mergeSharedAccounts();
 
   function load() {
@@ -395,6 +433,7 @@
     users,
     allGames,
     addPerson,
+    importAccounts,
     removePerson,
     addGame,
     assign,

@@ -410,8 +410,13 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <p class="form-error" id="assignError" hidden></p>
         <div class="board-list" id="boardList"></div>
         <div class="account-file">
-          <button class="btn btn-ghost" id="accountsFile" type="button" hidden>Account file</button>
-          <p class="hint-small">People you add here sign in on this browser. To let them sign in anywhere, download this file and send it to the workshop owner to publish.</p>
+          <div class="account-file-actions">
+            <button class="btn btn-ghost" id="accountsFile" type="button" hidden>Save account file</button>
+            <button class="btn btn-ghost" id="accountsRestore" type="button" hidden>Restore from file</button>
+            <input id="accountsRestoreInput" type="file" accept=".js,.json,text/javascript,application/json" hidden />
+          </div>
+          <p class="hint-small" id="accountsState"></p>
+          <p class="hint-small">People you add here live in this browser, so uninstalling the app or clearing site data removes them. Save the account file before you uninstall, then use Restore from file to bring everyone back.</p>
         </div>
       </section>
       <section class="workers-col chat-col">

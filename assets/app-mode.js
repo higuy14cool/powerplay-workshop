@@ -477,6 +477,8 @@
     const admin = me.role === "admin";
     $("#assignForm").hidden = !admin;
     $("#accountsFile").hidden = !admin;
+    $("#accountsRestore").hidden = !admin;
+    renderAccountsState();
     fillAssignForm();
     renderBoard();
     renderChat();
@@ -509,6 +511,60 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast(`Account file with ${users.length} ${users.length === 1 ? "person" : "people"} downloaded.`, "ok");
+  }
+
+  /* Which people would disappear if this browser's data went away. */
+  function renderAccountsState() {
+    const line = $("#accountsState");
+    if (!line) return;
+    const shared = new Set(
+      ((window.PowerplaySharedAccounts && window.PowerplaySharedAccounts.users) || [])
+        .map((u) => String(u.username || "").trim().toLowerCase())
+    );
+    const users = A.users();
+    const local = users.filter((u) => !shared.has(String(u.username || "").trim().toLowerCase()));
+    if (!local.length) {
+      line.textContent = `All ${users.length} ${users.length === 1 ? "person is" : "people are"} saved to the site's account file, so an uninstall changes nothing.`;
+      return;
+    }
+    line.textContent =
+      `${local.length} of ${users.length} ${local.length === 1 ? "person is" : "people are"} saved only in this browser ` +
+      `(${local.map((u) => u.username).join(", ")}). Uninstalling the app or clearing site data removes them — press Save account file first.`;
+  }
+
+  /* Read a saved account file back in, whatever wrapper it came in. */
+  function readAccountFile(text) {
+    const trimmed = String(text || "").trim();
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start < 0 || end <= start) return null;
+    try {
+      const data = JSON.parse(trimmed.slice(start, end + 1));
+      if (Array.isArray(data)) return data;
+      return Array.isArray(data.users) ? data.users : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function restoreAccountFile(file) {
+    if (!A.isAdmin()) return toast("Only admins can restore accounts.", "err");
+    const reader = new FileReader();
+    reader.onload = () => {
+      const rows = readAccountFile(reader.result);
+      if (!rows) return toast("That file does not look like an account file.", "err");
+      const { added, updated } = A.importAccounts(rows);
+      renderBoard();
+      fillAssignForm();
+      renderChat();
+      renderAccountsState();
+      const bits = [];
+      if (added) bits.push(`${added} restored`);
+      if (updated) bits.push(`${updated} updated`);
+      toast(bits.length ? `Account file loaded — ${bits.join(", ")}.` : "Everyone in that file is already here.", "ok");
+    };
+    reader.onerror = () => toast("That file could not be read.", "err");
+    reader.readAsText(file);
   }
 
   /* ---------- add a person ---------- */
@@ -551,6 +607,12 @@
     $("#chatForm").addEventListener("submit", onSend);
     $("#personForm").addEventListener("submit", onPersonSubmit);
     $("#accountsFile").addEventListener("click", downloadAccountFile);
+    $("#accountsRestore").addEventListener("click", () => $("#accountsRestoreInput").click());
+    $("#accountsRestoreInput").addEventListener("change", (event) => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = "";
+      if (file) restoreAccountFile(file);
+    });
     // the website's own "New game" button stays as-is for admins
     $("#openAddGame").addEventListener("click", (event) => {
       if (A.isAdmin()) return;
