@@ -171,6 +171,10 @@
   }
 
   function allGames() {
+    // the workshop library is the single source of truth, so anything the
+    // website saved is also assignable in the app
+    const live = window.PowerplayApp && window.PowerplayApp.getGames ? window.PowerplayApp.getGames() : null;
+    if (live && live.length) return live.map((g) => ({ ...g, builtIn: true }));
     return games()
       .map((g) => ({ ...g, builtIn: true }))
       .concat(custom.map((g) => ({ ...g, builtIn: false })));

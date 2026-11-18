@@ -2,257 +2,422 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>POWERPLAY Workshop — App</title>
-<meta name="theme-color" content="#0a0b10">
 <link rel="manifest" href="app.webmanifest">
-<link rel="stylesheet" href="assets/app-shell.css">
+<meta name="theme-color" content="#0a0b10">
+<meta name="description" content="POWERPLAY Workshop: your game library and an AI co-pilot that turns ideas into app plans and working starter code.">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
 <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/app-mode.css">
 </head>
-<body data-theme="lime">
+<body class="is-locked">
+<!-- sign in -->
+<div class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <span class="brand-mark brand-mark-lg">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </span>
+    <p class="eyebrow">// sign in</p>
+    <h1>POWERPLAY Workshop</h1>
+    <p class="login-lede">Your games, your team and the App Architect — sign in to open the workshop.</p>
+    <label class="field"><span>Username</span><input id="loginUser" name="username" autocomplete="username" required></label>
+    <label class="field"><span>Passcode</span><input id="loginPass" name="passcode" type="password" autocomplete="current-password" required></label>
+    <p class="login-error" id="loginError" role="alert" hidden></p>
+    <button class="btn btn-lime btn-lg" type="submit" id="loginBtn">Enter workshop</button>
+    <p class="login-hint">Admins sign in with their own details; workers use the ones their admin gave them.</p>
+  </form>
+</div>
+<div class="scene" aria-hidden="true">
+  <div class="scene-grid"></div>
+  <div class="orb orb-lime"></div>
+  <div class="orb orb-violet"></div>
+  <div class="scene-noise"></div>
+</div>
 
-<!-- ================= LOGIN ================= -->
-<section class="login" id="loginScreen">
-  <div class="login-card">
-    <div class="login-brand">
-      <span class="brand-mark">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-      </span>
-      <span class="brand-type"><strong>POWERPLAY</strong><em>Workshop</em></span>
-    </div>
-    <h1>Sign in</h1>
-    <p class="muted">Your workshop, your games, your team.</p>
-    <form id="loginForm" autocomplete="off" novalidate>
-      <label class="field">
-        <span>Username</span>
-        <input id="loginUser" name="username" type="text" placeholder="username" required autocapitalize="none" spellcheck="false">
-      </label>
-      <label class="field">
-        <span>Passcode</span>
-        <input id="loginPass" name="passcode" type="password" placeholder="passcode" required>
-      </label>
-      <p class="form-error" id="loginError" role="alert" hidden></p>
-      <button class="btn btn-accent btn-block" type="submit">Enter workshop</button>
-    </form>
-    <p class="login-foot muted">Accounts are created by an admin inside the app.</p>
+<div id="appShell">
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="POWERPLAY Workshop home">
+    <span class="brand-mark">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </span>
+    <span class="brand-type">
+      <strong>POWERPLAY</strong>
+      <em>Workshop</em>
+    </span>
+  </a>
+
+  <nav class="topnav" aria-label="Sections">
+    <a href="#library" class="is-active" data-nav="library">Library</a>
+    <a href="#architect" data-nav="architect">App Architect</a>
+    <a href="#about" data-nav="about">About</a>
+  </nav>
+
+  <div class="topbar-right">
+    <button class="btn btn-ghost" id="navWorkers" type="button">Workers</button>
+    <button class="btn btn-ghost" id="navAddPerson" type="button" hidden>Add person</button>
+    <span class="status-pill"><i></i> <span id="statusWho">Workshop online</span></span>
+    <button class="btn btn-lime" id="openAddGame" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      New game
+    </button>
+    <button class="btn btn-ghost" id="navLogout" type="button">Sign out</button>
   </div>
-</section>
+</header>
 
-<!-- ================= APP ================= -->
-<div class="app" id="appShell" hidden>
-  <header class="appbar">
-    <a class="appbar-brand" href="#" data-view="home">
-      <span class="brand-mark sm">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
-      </span>
-      <span class="brand-type"><strong>POWERPLAY</strong><em>Workshop</em></span>
-    </a>
-
-    <div class="appbar-actions">
-      <button class="pill-btn" id="navWorkers" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5M16 8.5a2.6 2.6 0 1 1 0 5.2M17.5 14.2c1.9.4 3 1.9 3.4 4.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Workers
-      </button>
-      <button class="pill-btn admin-only" id="navAddPerson" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 19c.6-3.2 2.7-5 6-5s5.4 1.8 6 5M18 7v6M15 10h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        Add person
-      </button>
-      <button class="pill-btn admin-only" id="navAddGame" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-        New game
-      </button>
-      <button class="pill-btn" id="navLogout" type="button" title="Sign out">Sign out</button>
+<main id="top">
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow"><span class="dot"></span> player one · workshop floor</p>
+      <h1>Your games.<br><span class="grad">Your next big app.</span></h1>
+      <p class="lede">A home for everything you've built — and an AI co-pilot that turns a rough idea into a plan, a stack and working starter code in seconds.</p>
+      <div class="hero-actions">
+        <button class="btn btn-lime btn-lg" data-scroll="architect" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z" fill="currentColor"/></svg>
+          Ask the App Architect
+        </button>
+        <button class="btn btn-ghost btn-lg" data-scroll="library" type="button">Browse library</button>
+      </div>
     </div>
-  </header>
 
-  <main class="app-main">
-    <!-- ---------- HOME ---------- -->
-    <section class="view" id="view-home">
-      <div class="view-head">
-        <div>
-          <p class="eyebrow" id="homeEyebrow">// your workshop</p>
-          <h1 id="homeTitle">Your games</h1>
-        </div>
-        <p class="muted" id="homeNote"></p>
+    <div class="hero-stats">
+      <div class="stat">
+        <span class="stat-num" id="statGames">0</span>
+        <span class="stat-label">games built</span>
       </div>
-      <div class="game-grid" id="appGameGrid"></div>
-      <p class="empty-note" id="appGameEmpty" hidden>No games here yet.</p>
-    </section>
-
-    <!-- ---------- WORKERS ---------- -->
-    <section class="view" id="view-workers" hidden>
-      <div class="view-head">
-        <div>
-          <p class="eyebrow">// team</p>
-          <h1>Workers</h1>
-        </div>
-        <p class="muted" id="workersNote"></p>
+      <div class="stat">
+        <span class="stat-num" id="statPlays">0</span>
+        <span class="stat-label">total plays</span>
       </div>
+      <div class="stat">
+        <span class="stat-num" id="statHours">0</span>
+        <span class="stat-label">hours played</span>
+      </div>
+      <div class="stat stat-wide">
+        <span class="stat-label">currently building</span>
+        <strong id="statBuilding">All shipped</strong>
+        <div class="meter"><i style="width:100%"></i></div>
+      </div>
+    </div>
+  </section>
 
-      <div class="workers-layout">
-        <div class="panel">
-          <div class="panel-head">
-            <h2>Assignments</h2>
-            <span class="tag" id="assignCount">0</span>
+  <section class="section" id="library">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">// 01 — library</p>
+        <h2>Games you made</h2>
+      </div>
+      <div class="library-tools">
+        <div class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input id="searchGames" type="search" placeholder="Search your games…" aria-label="Search your games">
+        </div>
+      </div>
+    </div>
+
+    <div class="filters" id="filters" role="tablist" aria-label="Filter games">
+      <button class="chip is-active" data-filter="all" role="tab" aria-selected="true">All</button>
+      <button class="chip" data-filter="Arcade" role="tab" aria-selected="false">Arcade</button>
+      <button class="chip" data-filter="Sports" role="tab" aria-selected="false">Sports</button>
+      <button class="chip" data-filter="Puzzle" role="tab" aria-selected="false">Puzzle</button>
+      <button class="chip" data-filter="Sandbox" role="tab" aria-selected="false">Sandbox</button>
+      <button class="chip" data-filter="Prototype" role="tab" aria-selected="false">Prototypes</button>
+    </div>
+
+    <div class="game-grid" id="gameGrid"></div>
+    <p class="empty-state" id="emptyState" hidden>No games match that search. Try another title — or build a new one.</p>
+  </section>
+
+  <section class="section architect" id="architect">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">// 02 — app architect</p>
+        <h2>Describe it. We'll architect it.</h2>
+      </div>
+      <span class="ai-badge"><i></i> Local AI · no keys needed</span>
+    </div>
+
+    <div class="architect-grid">
+      <div class="panel chat-panel">
+        <div class="panel-head">
+          <div class="ai-avatar" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M10 24V9l12 6-12 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>
           </div>
-          <form class="assign-form" id="assignForm" hidden>
-            <label class="field tight">
-              <span>Game</span>
-              <select id="assignGame"></select>
-            </label>
-            <label class="field tight">
-              <span>Worker</span>
-              <select id="assignWorker"></select>
-            </label>
-            <button class="btn btn-accent btn-small" type="submit">Assign</button>
-          </form>
-          <ul class="assign-list" id="assignList"></ul>
-          <p class="empty-note" id="assignEmpty" hidden>Nothing assigned yet.</p>
+          <div>
+            <strong>Architect</strong>
+            <span class="muted">app planning co-pilot</span>
+          </div>
+          <button class="icon-btn" id="resetChat" type="button" title="New conversation" aria-label="New conversation">
+            <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
 
-        <div class="panel chat-panel">
-          <div class="chat-tabs" id="chatTabs" role="tablist"></div>
-          <div class="chat-log" id="chatLog" aria-live="polite"></div>
-          <form class="chat-form" id="chatForm" autocomplete="off">
-            <input id="chatInput" type="text" placeholder="Message the team…" maxlength="400" aria-label="Message">
-            <button class="btn btn-accent" type="submit" aria-label="Send">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-3.4-6.2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
-            </button>
-          </form>
+        <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+        <div class="chips-row" id="promptChips">
+          <button class="chip chip-outline" data-prompt="I want to build a habit tracker app">Habit tracker</button>
+          <button class="chip chip-outline" data-prompt="Make me a mini arcade game with a score">Arcade game</button>
+          <button class="chip chip-outline" data-prompt="I need a study quiz app with flashcards">Quiz app</button>
+          <button class="chip chip-outline" data-prompt="Build a simple expense tracker">Expense tracker</button>
         </div>
+
+        <form class="composer" id="composer">
+          <textarea id="promptInput" rows="1" placeholder="Describe the app or game you want to make…" aria-label="Describe your app"></textarea>
+          <button class="btn btn-lime btn-send" type="submit" aria-label="Send prompt">
+            <svg viewBox="0 0 24 24"><path d="M4 12l16-7-5 7 5 7-16-7z" fill="currentColor"/></svg>
+          </button>
+        </form>
+        <p class="composer-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd> + <kbd>Enter</kbd> for a new line</p>
       </div>
 
-      <div class="panel team-panel">
-        <div class="panel-head"><h2>Team</h2><span class="tag" id="teamCount">0</span></div>
-        <ul class="team-list" id="teamList"></ul>
-      </div>
-    </section>
-
-    <!-- ---------- PROFILE ---------- -->
-    <section class="view" id="view-profile" hidden>
-      <div class="view-head">
-        <div>
-          <p class="eyebrow">// profile</p>
-          <h1>Your settings</h1>
+      <div class="panel blueprint-panel" id="blueprintPanel">
+        <div class="panel-head">
+          <div>
+            <strong id="bpTitle">Blueprint</strong>
+            <span class="muted" id="bpSubtitle">Ask the Architect to generate a plan</span>
+          </div>
+          <div class="bp-tabs" role="tablist" aria-label="Blueprint views">
+            <button class="bp-tab is-active" data-bp="plan" type="button" role="tab" aria-selected="true">Plan</button>
+            <button class="bp-tab" data-bp="code" type="button" role="tab" aria-selected="false">Code</button>
+            <button class="bp-tab" data-bp="preview" type="button" role="tab" aria-selected="false">Preview</button>
+          </div>
         </div>
-        <p class="muted" id="profileRole"></p>
-      </div>
 
-      <div class="profile-layout">
-        <div class="panel">
-          <div class="panel-head"><h2>Account</h2></div>
-          <div class="avatar-row">
-            <div class="avatar big" id="avatarPreview"></div>
-            <div class="avatar-actions">
-              <label class="btn btn-ghost btn-small" for="avatarFile">Change picture</label>
-              <input id="avatarFile" type="file" accept="image/*" hidden>
-              <button class="btn btn-ghost btn-small" id="avatarClear" type="button">Remove picture</button>
-              <p class="hint muted">Square images look best. Stored on this device.</p>
+        <div class="bp-body">
+          <div class="bp-view is-active" id="bpPlan">
+            <div class="bp-placeholder">
+              <div class="ghost-glyph" aria-hidden="true">
+                <svg viewBox="0 0 48 48"><rect x="6" y="8" width="36" height="32" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6 18h36M16 8v10M24 26h12M24 32h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </div>
+              <p>Your app blueprint appears here — features, screens, data model and a build order you can follow.</p>
             </div>
           </div>
-          <form id="profileForm" class="profile-form" autocomplete="off">
-            <label class="field">
-              <span>Username</span>
-              <input id="profileUser" type="text" maxlength="24" required autocapitalize="none" spellcheck="false">
-            </label>
-            <label class="field">
-              <span>Passcode</span>
-              <input id="profilePass" type="password" maxlength="40" required>
-            </label>
-            <p class="form-error" id="profileError" role="alert" hidden></p>
-            <button class="btn btn-accent" type="submit">Save changes</button>
-          </form>
-        </div>
 
-        <div class="panel">
-          <div class="panel-head"><h2>App colours</h2></div>
-          <p class="muted small">Pick an accent, or set your own.</p>
-          <div class="swatches" id="swatches"></div>
-          <label class="field">
-            <span>Custom accent</span>
-            <input id="customAccent" type="color" value="#b6ff3d">
-          </label>
-          <button class="btn btn-ghost btn-small" id="resetTheme" type="button">Reset to lime</button>
+          <div class="bp-view" id="bpCode">
+            <div class="code-toolbar">
+              <span class="file-pill" id="codeFilename">app.html</span>
+              <div class="code-actions">
+                <button class="btn btn-tiny btn-ghost" id="copyCode" type="button">Copy</button>
+                <button class="btn btn-tiny btn-ghost" id="downloadCode" type="button">Download</button>
+              </div>
+            </div>
+            <pre class="code-block"><code id="codeOutput"></code></pre>
+          </div>
+
+          <div class="bp-view" id="bpPreview">
+            <div class="preview-bar">
+              <span class="traffic"><i></i><i></i><i></i></span>
+              <span class="preview-url" id="previewUrl">starter.html</span>
+              <button class="btn btn-tiny btn-ghost" id="openPreviewTab" type="button">Open full screen</button>
+            </div>
+            <iframe id="previewFrame" title="Generated app preview" sandbox="allow-scripts allow-modals"></iframe>
+          </div>
         </div>
       </div>
-    </section>
-  </main>
+    </div>
+  </section>
 
-  <!-- bottom-left icon: my profile -->
-  <button class="me-btn" id="meBtn" type="button" aria-label="Open your profile" aria-haspopup="dialog">
-    <span class="avatar" id="meAvatar"></span>
-  </button>
+  <section class="section about" id="about">
+    <div class="about-card">
+      <div>
+        <p class="eyebrow">// 03 — about</p>
+        <h2>Built for power plays.</h2>
+        <p>POWERPLAY Workshop is your private arcade shelf and design desk in one. Every game lives in your browser (localStorage), so your library is still here when you come back. The Architect runs locally — it plans apps, picks a stack, writes starter code you can copy, download or preview instantly.</p>
+      </div>
+      <ul class="about-list">
+        <li><b>No account, no keys.</b> Everything runs in this page.</li>
+        <li><b>Yours to keep.</b> Export any blueprint as a real HTML file.</li>
+        <li><b>Made to grow.</b> Add games, tweak details, ship them.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>POWERPLAY Workshop · <span id="year">2026</span></span>
+  <span class="footer-right">Built by Lemon Code · runs fully offline</span>
+</footer>
+
+<!-- profile button (bottom left) -->
+<button class="me-btn" id="meBtn" type="button" aria-label="Profile settings">
+  <span class="avatar" id="meAvatar"></span>
+  <span class="me-name" id="meName"></span>
+</button>
 </div>
 
-<!-- ================= MODALS ================= -->
-<div class="modal" id="personModal" role="dialog" aria-modal="true" aria-labelledby="personTitle" hidden>
-  <div class="modal-backdrop" data-close="person"></div>
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2 id="personTitle">Add person</h2>
-      <button class="icon-btn" data-close="person" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
+<!-- Game detail modal -->
+<div class="modal" id="gameModal" role="dialog" aria-modal="true" aria-labelledby="gameModalTitle" hidden>
+  <div class="modal-backdrop" data-close="game"></div>
+  <div class="modal-card game-modal-card">
+    <button class="icon-btn modal-close" data-close="game" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <div class="game-modal-art" id="gameModalArt"></div>
+    <div class="game-modal-body">
+      <p class="eyebrow" id="gameModalTag">Arcade</p>
+      <h3 id="gameModalTitle">Game</h3>
+      <p id="gameModalDesc" class="muted"></p>
+      <div class="meta-grid" id="gameModalMeta"></div>
+      <div class="game-modal-actions" id="gameModalActions">
+        <button class="btn btn-lime" id="playGameBtn" type="button">Play now</button>
+        <button class="btn btn-ghost" id="editGameBtn" type="button">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Edit with AI
+        </button>
+        <button class="btn btn-ghost" id="deleteGameBtn" type="button">Remove</button>
+      </div>
     </div>
-    <form id="personForm" class="stack" autocomplete="off">
-      <label class="field">
-        <span>Username</span>
-        <input id="personUser" type="text" maxlength="24" required autocapitalize="none" spellcheck="false" placeholder="e.g. sam">
-      </label>
-      <label class="field">
-        <span>Passcode</span>
-        <input id="personPass" type="text" maxlength="40" required placeholder="e.g. team123">
-      </label>
-      <label class="field">
-        <span>Role</span>
-        <select id="personRole">
-          <option value="worker">Worker</option>
-          <option value="admin">Admin</option>
-        </select>
-      </label>
-      <p class="hint muted">Admins add people and create games. Workers see only the games assigned to them.</p>
-      <p class="form-error" id="personError" role="alert" hidden></p>
-      <button class="btn btn-accent btn-block" type="submit">Create account</button>
-    </form>
   </div>
 </div>
 
-<div class="modal" id="gameModal" role="dialog" aria-modal="true" aria-labelledby="gameTitle" hidden>
-  <div class="modal-backdrop" data-close="game"></div>
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2 id="gameTitle">New game</h2>
-      <button class="icon-btn" data-close="game" type="button" aria-label="Close">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <form id="gameForm" class="stack" autocomplete="off">
-      <label class="field">
-        <span>Title</span>
-        <input id="gameTitleInput" type="text" maxlength="40" required placeholder="e.g. Skyline Sprint">
-      </label>
-      <label class="field">
-        <span>Genre</span>
-        <select id="gameGenre">
-          <option>Sports</option><option>Arcade</option><option>Puzzle</option><option>Sandbox</option><option>Prototype</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>Pitch</span>
-        <textarea id="gamePitch" maxlength="140" rows="2" placeholder="One line about the game"></textarea>
-      </label>
-      <p class="form-error" id="gameError" role="alert" hidden></p>
-      <button class="btn btn-accent btn-block" type="submit">Add to workshop</button>
+<!-- Add game modal -->
+<div class="modal" id="addModal" role="dialog" aria-modal="true" aria-labelledby="addModalTitle" hidden>
+  <div class="modal-backdrop" data-close="add"></div>
+  <div class="modal-card add-modal-card">
+    <button class="icon-btn modal-close" data-close="add" type="button" aria-label="Close">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <p class="eyebrow">// add to library</p>
+    <h3 id="addModalTitle">Log a new game</h3>
+    <form id="addGameForm" class="form">
+      <label>Title<input name="title" required maxlength="40" placeholder="e.g. Skyline Sprint"></label>
+      <div class="form-row">
+        <label>Genre
+          <select name="genre">
+            <option>Arcade</option>
+            <option>Sports</option>
+            <option>Puzzle</option>
+            <option>Sandbox</option>
+            <option>Prototype</option>
+          </select>
+        </label>
+        <label>Status
+          <select name="status">
+            <option>Released</option>
+            <option>In progress</option>
+            <option>Prototype</option>
+          </select>
+        </label>
+      </div>
+      <label>One-line pitch<textarea name="desc" rows="2" maxlength="140" placeholder="What's the hook?"></textarea></label>
+      <div class="form-actions">
+        <button class="btn btn-ghost" type="button" data-close="add">Cancel</button>
+        <button class="btn btn-lime" type="submit">Add to library</button>
+      </div>
     </form>
   </div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<!-- add person modal -->
+<div class="modal" id="personModal" role="dialog" aria-modal="true" aria-labelledby="personModalTitle" hidden>
+  <div class="modal-backdrop" data-close="person"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">// team</p>
+        <h3 id="personModalTitle">Add a person</h3>
+      </div>
+      <button class="icon-btn" data-close="person" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="personForm" class="stack">
+      <label class="field"><span>Username</span><input id="personUser" required maxlength="24" placeholder="e.g. jordan"></label>
+      <label class="field"><span>Passcode</span><input id="personPass" required minlength="4" maxlength="24" placeholder="at least 4 characters"></label>
+      <label class="field"><span>Role</span>
+        <select id="personRole"><option value="worker">Worker</option><option value="admin">Admin</option></select>
+      </label>
+      <p class="form-error" id="personError" hidden></p>
+      <button class="btn btn-lime" type="submit">Add person</button>
+    </form>
+  </div>
+</div>
+
+<!-- workers modal: board + chats -->
+<div class="modal" id="workersModal" role="dialog" aria-modal="true" aria-labelledby="workersTitle" hidden>
+  <div class="modal-backdrop" data-close="workers"></div>
+  <div class="modal-card wide-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">// team</p>
+        <h3 id="workersTitle">Workers</h3>
+      </div>
+      <button class="icon-btn" data-close="workers" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="workers-body">
+      <section class="workers-col">
+        <h4>Work board</h4>
+        <form class="assign-form" id="assignForm">
+          <select id="assignUser" aria-label="Person"></select>
+          <select id="assignGame" aria-label="Game"></select>
+          <button class="btn btn-lime" type="submit">Assign</button>
+        </form>
+        <p class="form-error" id="assignError" hidden></p>
+        <div class="board-list" id="boardList"></div>
+      </section>
+      <section class="workers-col chat-col">
+        <div class="chat-head">
+          <h4 id="chatTitle">Group chat</h4>
+          <div class="scope-chips" id="chatScopes"></div>
+        </div>
+        <div class="chat-log" id="chatLog"></div>
+        <form class="chat-form" id="chatForm">
+          <input id="chatInput" placeholder="Message the crew…" autocomplete="off" maxlength="400">
+          <button class="btn btn-lime" type="submit">Send</button>
+        </form>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- profile modal -->
+<div class="modal" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle" hidden>
+  <div class="modal-backdrop" data-close="profile"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">// profile</p>
+        <h3 id="profileTitle">Your profile</h3>
+      </div>
+      <button class="icon-btn" data-close="profile" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="profile-top">
+      <span class="avatar avatar-lg" id="profileAvatar"></span>
+      <div class="profile-top-actions">
+        <label class="btn btn-ghost btn-file">Change picture<input type="file" id="avatarFile" accept="image/*" hidden></label>
+        <button class="btn btn-ghost" id="avatarRemove" type="button">Remove picture</button>
+      </div>
+    </div>
+    <form id="profileForm" class="stack">
+      <label class="field"><span>Username</span><input id="profileUser" required maxlength="24"></label>
+      <label class="field"><span>Passcode</span><input id="profilePass" required minlength="4" maxlength="24"></label>
+      <p class="form-error" id="profileError" hidden></p>
+      <button class="btn btn-lime" type="submit">Save changes</button>
+    </form>
+    <div class="theme-block">
+      <h4>App colours</h4>
+      <div class="swatches" id="swatches"></div>
+      <div class="custom-accent">
+        <label class="field"><span>Custom accent</span><input type="color" id="customAccent" value="#b6ff3d"></label>
+        <button class="btn btn-ghost" id="resetTheme" type="button">Reset to lime</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="assets/games-data.js"></script>
+<script src="assets/app.js"></script>
+<script src="assets/architect.js"></script>
+<script src="assets/architect-ui.js"></script>
 <script src="assets/accounts.js"></script>
-<script src="assets/app-ui.js"></script>
+<script src="assets/app-mode.js"></script>
 </body>
 </html>
