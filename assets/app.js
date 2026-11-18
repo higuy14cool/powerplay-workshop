@@ -284,6 +284,101 @@
     return '<canvas aria-hidden="true"></canvas>';
   }
 
+  function playLink(game) {
+    if (game.build) return `app.html#play=${encodeURIComponent(game.id)}`;
+    if (game.url) return game.url;
+    return "";
+  }
+
+  function gameLinkMarkup(game) {
+    const href = playLink(game);
+    if (!href) {
+      return `<div class="game-links"><span class="game-link is-empty">No playable build yet</span></div>`;
+    }
+    const safeHref = escapeHtml(href);
+    const label = game.build ? `#play=${game.id}` : game.url;
+    return `<div class="game-links">
+            <a class="game-link" href="${safeHref}" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7V5z" fill="currentColor"/></svg>
+              <span>${escapeHtml(label)}</span>
+            </a>
+            <button class="game-link-copy" type="button" data-copy="${safeHref}" aria-label="Copy the ${escapeHtml(game.title)} link" title="Copy link">Copy</button>
+          </div>`;
+  }
+
+  // #play=<id> opens a game straight from its link, build or original folder.
+  function openPlayHash() {
+    const m = location.hash.match(/^#play=(.+)$/);
+    if (!m) return false;
+    let id = m[1];
+    try { id = decodeURIComponent(id); } catch (err) { /* keep the raw value */ }
+    const game = state.games.find((g) => g.id === id);
+    if (!game) {
+      toast("That game link no longer matches a game in this library.", "err");
+      return false;
+    }
+    if (game.build) {
+      location.replace(URL.createObjectURL(new Blob([game.build], { type: "text/html" })));
+      return true;
+    }
+    if (game.url) {
+      location.replace(game.url);
+      return true;
+    }
+    toast(`“${game.title}” has no playable build yet.`, "err");
+    return false;
+  }
+
+  function setupInstall() {
+    const bar = document.querySelector(".topbar-right");
+    if (!bar || $("#installApp")) return;
+    const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const btn = document.createElement("button");
+    btn.className = "btn btn-ghost install-btn";
+    btn.id = "installApp";
+    btn.type = "button";
+    btn.textContent = "Install app";
+    btn.hidden = true;
+    bar.insertBefore(btn, bar.firstChild);
+
+    // The sign-in gate covers the top bar, so offer install there too.
+    const loginCard = document.querySelector(".login-card");
+    const gateBtn = loginCard ? btn.cloneNode(true) : null;
+    if (gateBtn) {
+      gateBtn.id = "loginInstall";
+      gateBtn.className = "btn btn-ghost install-btn is-gate";
+      loginCard.appendChild(gateBtn);
+    }
+    const buttons = gateBtn ? [btn, gateBtn] : [btn];
+    const show = (on) => buttons.forEach((b) => (b.hidden = !on));
+
+    let prompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      prompt = e;
+      show(!standalone);
+    });
+    window.addEventListener("appinstalled", () => {
+      show(false);
+      toast("POWERPLAY installed — open it from your home screen.");
+    });
+    if (isIOS && !standalone) show(true); // Safari has no install event
+    buttons.forEach((b) =>
+      b.addEventListener("click", async () => {
+        if (prompt) {
+          prompt.prompt();
+          const choice = await prompt.userChoice;
+          prompt = null;
+          show(false);
+          if (choice && choice.outcome === "accepted") toast("Installing POWERPLAY…");
+          return;
+        }
+        toast(isIOS ? "Tap Share, then “Add to Home Screen”." : "Open the browser menu and choose Install app / Add to Home screen.");
+      })
+    );
+  }
+
   function renderLibrary() {
     const grid = $("#gameGrid");
     const list = visibleGames();
@@ -316,13 +411,30 @@
             <span><b>${(game.hours || 0).toFixed(1)}h</b> played</span>
             <span>${game.build ? '<em class="edited-chip">edited build</em>' : escapeHtml(game.updated || "just now")}</span>
           </div>
+          ${gameLinkMarkup(game)}
         </div>`;
       grid.appendChild(card);
       requestAnimationFrame(() => {
         const canvas = card.querySelector("canvas");
         if (canvas) paintCover(canvas, game);
       });
-      card.addEventListener("click", () => openGame(game.id));
+      card.addEventListener("click", (e) => {
+        if (e.target.closest(".game-links")) return;
+        openGame(game.id);
+      });
+      const copyBtn = card.querySelector("[data-copy]");
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const link = new URL(copyBtn.dataset.copy, location.href).href;
+          try {
+            await navigator.clipboard.writeText(link);
+            toast("Play link copied.");
+          } catch (err) {
+            window.prompt("Copy this play link:", link);
+          }
+        });
+      }
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -580,6 +692,8 @@
     const saved = loadGames();
     state.games = saved || SEED_GAMES.map((g) => ({ ...g }));
     if (!saved) saveGames();
+    setupInstall();
+    if (openPlayHash()) return;
     renderLibrary();
     initNav();
 
@@ -661,6 +775,7 @@
       escapeHtml,
       formatNum,
       getGames: () => state.games.slice(),
+      playLink,
       addPlay(id) {
         const game = state.games.find((g) => g.id === id);
         if (!game) return;

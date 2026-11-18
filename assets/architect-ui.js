@@ -721,12 +721,12 @@ render();
 
   function setEditingGame(game) {
     editingGame = game || null;
-    if (saveNewBtn) saveNewBtn.hidden = !editingGame;
-    if (!saveBtn) return;
-    saveBtn.hidden = !editingGame;
-    if (editingGame) {
-      saveBtn.textContent = `Save to ${editingGame.title}`;
-      saveBtn.title = `Replace ${editingGame.title}'s playable build with the code below`;
+    if (saveBtn) {
+      saveBtn.hidden = !editingGame;
+      if (editingGame) {
+        saveBtn.textContent = `Save to ${editingGame.title}`;
+        saveBtn.title = `Replace ${editingGame.title}'s playable build with the code below`;
+      }
     }
   }
 
@@ -854,6 +854,7 @@ render();
     previewFrame.setAttribute("srcdoc", plan.code);
     current = plan;
     if (editingGame && saveBtn) saveBtn.textContent = `Save to ${editingGame.title}`;
+    if (saveNewBtn) saveNewBtn.hidden = false;
 
     // bring the blueprint into view on small screens
     if (window.innerWidth < 1080) {
@@ -921,8 +922,9 @@ render();
           .replace(/<h1>[^<]*<\/h1>/, `<h1>${title}</h1>`);
       }
       renderPlan(plan);
-      // While editing a game, land on the code so the save button is in reach.
-      switchTab(editingGame ? "code" : "plan");
+      // Games land on the code tab, where Save to game / Save as new game live.
+      const isGamePlan = ["game", "shooter", "runner", "memory"].includes(plan.archetype.id);
+      switchTab(editingGame || isGamePlan ? "code" : "plan");
 
       const stackNote = plan.mentions.length
         ? ` I kept your ${plan.mentions.join(" / ")} preference in the stack and used a vanilla reference build for the starter.`
@@ -1009,17 +1011,23 @@ render();
     const game = window.PowerplayApp && window.PowerplayApp.applyBuild
       ? window.PowerplayApp.applyBuild(editingGame.id, current.code)
       : null;
-    if (game) saveBtn.textContent = `Saved to ${game.title}`;
+    if (game) {
+      saveBtn.textContent = `Saved to ${game.title}`;
+      const link = new URL(window.PowerplayApp.playLink(game), location.href).href;
+      addMessage(
+        "ai",
+        `Saved — **${game.title}** now plays from this build.\n\nPlay link: \`${link}\`\n\nThe card for ${game.title} has the same link with a Copy button; *Restore original* on the game puts the shipped version back.`
+      );
+    }
     else if (window.PowerplayApp) window.PowerplayApp.toast("That game is no longer in the library.", "err");
   });
 
   if (saveNewBtn) saveNewBtn.addEventListener("click", () => {
-    if (!editingGame) return;
     if (!current || !current.code) {
       if (window.PowerplayApp) window.PowerplayApp.toast("Nothing to save yet — ask for a change first.", "err");
       return;
     }
-    const base = current.name || editingGame.title;
+    const base = current.name || (editingGame && editingGame.title) || "New game";
     let title = base;
     if (window.PowerplayApp && window.PowerplayApp.getGames) {
       const taken = window.PowerplayApp.getGames().some((g) => g.title.toLowerCase() === title.toLowerCase());
@@ -1033,7 +1041,14 @@ render();
           genre: current.archetype ? current.archetype.name : "Arcade",
         })
       : null;
-    if (game) saveNewBtn.textContent = `Added “${game.title}”`;
+    if (game) {
+      saveNewBtn.textContent = `Added “${game.title}”`;
+      const link = new URL(window.PowerplayApp.playLink(game), location.href).href;
+      addMessage(
+        "ai",
+        `**${game.title}** is in the library with its own play link:\n\n\`${link}\`\n\nOpen it in a new tab, or copy it from the card with the Copy button.`
+      );
+    }
   });
 
   $("#copyCode").addEventListener("click", async () => {
