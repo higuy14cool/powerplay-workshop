@@ -127,13 +127,6 @@ body:not(.is-locked) .login-screen{display:none}
 .custom-accent .field{flex:0 0 120px}
 .custom-accent input[type=color]{padding:4px;height:42px;cursor:pointer}
 
-/* ---------- assigned strip for workers ---------- */
-.assigned-strip{
-  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 18px;padding:12px 16px;
-  border-radius:14px;background:var(--lime-soft);border:1px solid rgba(184,255,61,.3);font-size:13px;
-}
-.assigned-strip b{color:var(--lime)}
-
 @media (max-width:860px){
   .workers-body{grid-template-columns:1fr;max-height:76vh;overflow:auto;padding:16px 18px 22px}
   .chat-col{border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:16px}

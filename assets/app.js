@@ -18,6 +18,7 @@
     filter: "all",
     search: "",
     activeGame: null,
+    gameScope: null,
   };
 
   /* ---------- storage ---------- */
@@ -262,9 +263,26 @@
   }
 
   /* ---------- rendering ---------- */
+  // App mode narrows the library to a worker's assigned games; the website leaves this null.
+  function scopedGames() {
+    return state.gameScope ? state.games.filter(state.gameScope) : state.games;
+  }
+
+  function setGameScope(fn) {
+    state.gameScope = typeof fn === "function" ? fn : null;
+    state.filter = "all";
+    $$("#filters .chip").forEach((c) => {
+      const on = c.dataset.filter === "all";
+      c.classList.toggle("is-active", on);
+      c.setAttribute("aria-selected", String(on));
+    });
+    renderStats();
+    renderLibrary();
+  }
+
   function visibleGames() {
     const q = state.search.trim().toLowerCase();
-    return state.games.filter((g) => {
+    return scopedGames().filter((g) => {
       const inFilter = state.filter === "all" || g.genre === state.filter;
       const inSearch = !q || (g.title + " " + g.genre + " " + g.pitch).toLowerCase().includes(q);
       return inFilter && inSearch;
@@ -307,6 +325,10 @@
   }
 
   // #play=<id> opens a game straight from its link, build or original folder.
+  function clearPlayHash() {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
   function openPlayHash() {
     const m = location.hash.match(/^#play=(.+)$/);
     if (!m) return false;
@@ -314,7 +336,13 @@
     try { id = decodeURIComponent(id); } catch (err) { /* keep the raw value */ }
     const game = state.games.find((g) => g.id === id);
     if (!game) {
+      clearPlayHash();
       toast("That game link no longer matches a game in this library.", "err");
+      return false;
+    }
+    if (state.gameScope && !state.gameScope(game)) {
+      clearPlayHash();
+      toast("That game is not assigned to you.", "err");
       return false;
     }
     if (game.build) {
@@ -384,6 +412,10 @@
     const list = visibleGames();
     grid.innerHTML = "";
     $("#emptyState").hidden = list.length > 0;
+    $("#emptyState").textContent =
+      state.gameScope && !scopedGames().length
+        ? "Nothing assigned to you yet. Your admin will put work here."
+        : "No games match that search. Try another title — or build a new one.";
 
     list.forEach((game) => {
       const card = document.createElement("article");
@@ -447,7 +479,7 @@
   }
 
   function renderStats() {
-    const games = state.games;
+    const games = scopedGames();
     const plays = games.reduce((sum, g) => sum + (g.plays || 0), 0);
     const hours = games.reduce((sum, g) => sum + (g.hours || 0), 0);
     animateNumber($("#statGames"), games.length);
@@ -706,9 +738,12 @@
       saveGames();
     }
     setupInstall();
-    if (openPlayHash()) return;
     renderLibrary();
     initNav();
+    // Deferred so the app layer has applied the signed-in person's scope first: a play
+    // link must not open a game that is not assigned to the worker holding it.
+    setTimeout(openPlayHash, 0);
+    window.addEventListener("hashchange", openPlayHash);
 
     $("#year").textContent = new Date().getFullYear();
 
@@ -789,6 +824,7 @@
       formatNum,
       getGames: () => state.games.slice(),
       playLink,
+      setGameScope,
       addPlay(id) {
         const game = state.games.find((g) => g.id === id);
         if (!game) return;

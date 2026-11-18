@@ -90,7 +90,17 @@
     applyTheme(user);
     paintMe();
     applyRole(user);
-    renderAssignedStrip();
+    // Workers only see the games assigned to them where the library sits.
+    if (window.PowerplayApp && window.PowerplayApp.setGameScope) {
+      window.PowerplayApp.setGameScope(
+        user.role === "worker"
+          ? (game) => {
+              const me = A.current();
+              return !!me && (me.assigned || []).includes(game.id);
+            }
+          : null
+      );
+    }
     if (!booted) {
       booted = true;
       bindTeam();
@@ -267,25 +277,14 @@
     return game ? game.title : "Removed game";
   }
 
-  /* ---------- assigned strip (workers see their work on the home screen) ---------- */
-  function renderAssignedStrip() {
-    const section = document.getElementById("library");
-    if (!section) return;
-    const user = A.current();
-    const assigned = user && user.role === "worker" ? user.assigned || [] : [];
-    let strip = section.querySelector(".assigned-strip");
-    if (!assigned.length) {
-      if (strip) strip.remove();
-      return;
+  function refreshScope() {
+    // Re-apply the worker's scope after an admin changes assignments.
+    if (window.PowerplayApp && window.PowerplayApp.setGameScope && A.current() && A.current().role === "worker") {
+      window.PowerplayApp.setGameScope((game) => {
+        const me = A.current();
+        return !!me && (me.assigned || []).includes(game.id);
+      });
     }
-    if (!strip) {
-      strip = document.createElement("div");
-      strip.className = "assigned-strip";
-      section.insertBefore(strip, section.firstChild);
-    }
-    strip.innerHTML =
-      '<span>Assigned to you:</span>' +
-      assigned.map((id) => `<span class="chip">${esc(gameTitle(id))}</span>`).join("");
   }
 
   /* ---------- team: work board ---------- */
@@ -351,7 +350,7 @@
               const res = A.unassign(gameId, person.id);
               if (!res.ok) return toast(res.error, "err");
               renderBoard();
-              renderAssignedStrip();
+              refreshScope();
               paintMe();
               toast(`${gameTitle(gameId)} unassigned`, "ok");
             });
@@ -403,7 +402,7 @@
     }
     error.hidden = true;
     renderBoard();
-    renderAssignedStrip();
+    refreshScope();
     toast(`${gameTitle(gameId)} → ${res.user.username}`, "ok");
   }
 
@@ -437,7 +436,7 @@
     renderScopes();
     const title = $("#chatTitle");
     if (title) title.textContent = chatTitle();
-    const log = $("#chatLog");
+    const log = $("#chatThread");
     const me = A.current();
     if (!log || !me) return;
     const msgs = A.messages(state.scope);
@@ -539,5 +538,5 @@
     else showLogin();
   });
 
-  window.PowerplayAppMode = { openModal, closeModal, toast, paintMe, applyTheme, renderAssignedStrip, renderTeam };
+  window.PowerplayAppMode = { openModal, closeModal, toast, paintMe, applyTheme, refreshScope, renderTeam };
 })();

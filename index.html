@@ -11,8 +11,25 @@
 <link rel="manifest" href="app.webmanifest">
 <meta name="theme-color" content="#0a0b10">
 <link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/app-mode.css">
 </head>
-<body>
+<body class="is-locked">
+<!-- sign in -->
+<div class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm" autocomplete="on">
+    <span class="brand-mark brand-mark-lg">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5v8M9.6 9a9.4 9.4 0 1 0 12.8 0" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </span>
+    <p class="eyebrow">// sign in</p>
+    <h1>POWERPLAY Workshop</h1>
+    <p class="login-lede">Your games, your team and the App Architect — sign in to open the workshop.</p>
+    <label class="field"><span>Username</span><input id="loginUser" name="username" autocomplete="username" required></label>
+    <label class="field"><span>Passcode</span><input id="loginPass" name="passcode" type="password" autocomplete="current-password" required></label>
+    <p class="login-error" id="loginError" role="alert" hidden></p>
+    <button class="btn btn-lime btn-lg" type="submit" id="loginBtn">Enter workshop</button>
+    <p class="login-hint">Admins sign in with their own details; workers use the ones their admin gave them.</p>
+  </form>
+</div>
 <div class="scene" aria-hidden="true">
   <div class="scene-grid"></div>
   <div class="orb orb-lime"></div>
@@ -20,6 +37,7 @@
   <div class="scene-noise"></div>
 </div>
 
+<div id="appShell">
 <header class="topbar">
   <a class="brand" href="#top" aria-label="POWERPLAY Workshop home">
     <span class="brand-mark">
@@ -39,11 +57,14 @@
 
   <div class="topbar-right">
     <a class="btn btn-ghost" href="app.html" style="text-decoration:none">Open app</a>
-    <span class="status-pill"><i></i> Workshop online</span>
+    <button class="btn btn-ghost" id="navWorkers" type="button">Workers</button>
+    <button class="btn btn-ghost" id="navAddPerson" type="button" hidden>Add person</button>
+    <span class="status-pill"><i></i> <span id="statusWho">Workshop online</span></span>
     <button class="btn btn-lime" id="openAddGame" type="button">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
       New game
     </button>
+    <button class="btn btn-ghost" id="navLogout" type="button">Sign out</button>
   </div>
 </header>
 
@@ -222,6 +243,13 @@
   <span class="footer-right">Built by Lemon Code · runs fully offline</span>
 </footer>
 
+<!-- profile button (bottom left) -->
+<button class="me-btn" id="meBtn" type="button" aria-label="Profile settings">
+  <span class="avatar" id="meAvatar"></span>
+  <span class="me-name" id="meName"></span>
+</button>
+</div>
+
 <!-- Game detail modal -->
 <div class="modal" id="gameModal" role="dialog" aria-modal="true" aria-labelledby="gameModalTitle" hidden>
   <div class="modal-backdrop" data-close="game"></div>
@@ -300,10 +328,112 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<!-- add person modal -->
+<div class="modal" id="personModal" role="dialog" aria-modal="true" aria-labelledby="personModalTitle" hidden>
+  <div class="modal-backdrop" data-close="person"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">// team</p>
+        <h3 id="personModalTitle">Add a person</h3>
+      </div>
+      <button class="icon-btn" data-close="person" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <form id="personForm" class="stack">
+      <label class="field"><span>Username</span><input id="personUser" required maxlength="24" placeholder="e.g. jordan"></label>
+      <label class="field"><span>Passcode</span><input id="personPass" required minlength="4" maxlength="24" placeholder="at least 4 characters"></label>
+      <label class="field"><span>Role</span>
+        <select id="personRole"><option value="worker">Worker</option><option value="admin">Admin</option></select>
+      </label>
+      <p class="form-error" id="personError" hidden></p>
+      <button class="btn btn-lime" type="submit">Add person</button>
+    </form>
+  </div>
+</div>
+
+<!-- workers modal: board + chats -->
+<div class="modal" id="workersModal" role="dialog" aria-modal="true" aria-labelledby="workersTitle" hidden>
+  <div class="modal-backdrop" data-close="workers"></div>
+  <div class="modal-card wide-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">// team</p>
+        <h3 id="workersTitle">Workers</h3>
+      </div>
+      <button class="icon-btn" data-close="workers" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="workers-body">
+      <section class="workers-col">
+        <h4>Work board</h4>
+        <form class="assign-form" id="assignForm">
+          <select id="assignUser" aria-label="Person"></select>
+          <select id="assignGame" aria-label="Game"></select>
+          <button class="btn btn-lime" type="submit">Assign</button>
+        </form>
+        <p class="form-error" id="assignError" hidden></p>
+        <div class="board-list" id="boardList"></div>
+      </section>
+      <section class="workers-col chat-col">
+        <div class="chat-head">
+          <h4 id="chatTitle">Group chat</h4>
+          <div class="scope-chips" id="chatScopes"></div>
+        </div>
+        <div class="chat-log" id="chatThread"></div>
+        <form class="chat-form" id="chatForm">
+          <input id="chatInput" placeholder="Message the crew…" autocomplete="off" maxlength="400">
+          <button class="btn btn-lime" type="submit">Send</button>
+        </form>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- profile modal -->
+<div class="modal" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle" hidden>
+  <div class="modal-backdrop" data-close="profile"></div>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">// profile</p>
+        <h3 id="profileTitle">Your profile</h3>
+      </div>
+      <button class="icon-btn" data-close="profile" type="button" aria-label="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="profile-top">
+      <span class="avatar avatar-lg" id="profileAvatar"></span>
+      <div class="profile-top-actions">
+        <label class="btn btn-ghost btn-file">Change picture<input type="file" id="avatarFile" accept="image/*" hidden></label>
+        <button class="btn btn-ghost" id="avatarRemove" type="button">Remove picture</button>
+      </div>
+    </div>
+    <form id="profileForm" class="stack">
+      <label class="field"><span>Username</span><input id="profileUser" required maxlength="24"></label>
+      <label class="field"><span>Passcode</span><input id="profilePass" required minlength="4" maxlength="24"></label>
+      <p class="form-error" id="profileError" hidden></p>
+      <button class="btn btn-lime" type="submit">Save changes</button>
+    </form>
+    <div class="theme-block">
+      <h4>App colours</h4>
+      <div class="swatches" id="swatches"></div>
+      <div class="custom-accent">
+        <label class="field"><span>Custom accent</span><input type="color" id="customAccent" value="#b6ff3d"></label>
+        <button class="btn btn-ghost" id="resetTheme" type="button">Reset to lime</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="assets/games-data.js"></script>
 <script src="assets/app.js"></script>
 <script src="assets/architect.js"></script>
 <script src="assets/architect-ui.js"></script>
+<script src="assets/accounts.js"></script>
+<script src="assets/app-mode.js"></script>
 </body>
 </html>
