@@ -824,6 +824,28 @@ render();
         saveBtn.title = `Replace ${editingGame.title}'s playable build with the code below`;
       }
     }
+    // Workers work inside assigned games; they never add one to the library.
+    if (saveNewBtn) saveNewBtn.hidden = !!workerSession();
+  }
+
+  // The signed-in worker, or null for admins and signed-out pages.
+  function workerSession() {
+    const A = window.PowerplayAccounts;
+    const me = A && A.current ? A.current() : null;
+    return me && me.role === "worker" ? me : null;
+  }
+
+  // Returns a refusal message when a worker may not build this, otherwise "".
+  function workerBlock(game) {
+    const me = workerSession();
+    if (!me) return "";
+    if (game) {
+      const mine = (me.assigned || []).includes(game.id);
+      return mine
+        ? ""
+        : `**${game.title} is not assigned to you**, so I can't change it. Your admin decides who works on what — open one of the games on your home screen and press **Edit with AI**.`;
+    }
+    return "Workers can't create new games — your admin creates them and assigns them to you.\n\nOpen a game that is assigned to you (they're on your home screen) and press **Edit with AI**: I'll rebuild that game's playable version from your words. You can always ask me how something works.";
   }
 
   // A prompt that names a game type gets that build; otherwise the arcade loop.
@@ -958,7 +980,7 @@ render();
     previewFrame.setAttribute("srcdoc", plan.code);
     current = plan;
     if (editingGame && saveBtn) saveBtn.textContent = `Save to ${editingGame.title}`;
-    if (saveNewBtn) saveNewBtn.hidden = false;
+    if (saveNewBtn) saveNewBtn.hidden = !!workerSession();
 
     // bring the blueprint into view on small screens
     if (window.innerWidth < 1080) {
@@ -1164,6 +1186,14 @@ render();
           "ai",
           "Hey — I'm the Architect. Describe an app or a game in plain words and I'll return a blueprint: features, screens, stack, data model, build order, and runnable starter code.\n\nTry something like **a habit tracker** or **a 15-second arcade game**."
         );
+        busy = false;
+        return;
+      }
+
+      // Workers only edit assigned games; they cannot add games to the library.
+      const blocked = workerBlock(editingGame);
+      if (blocked) {
+        addMessage("ai", blocked);
         busy = false;
         return;
       }

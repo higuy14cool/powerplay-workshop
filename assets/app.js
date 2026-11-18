@@ -372,6 +372,10 @@
   }
 
   function setupInstall() {
+    // GitHub Pages / localhost: this registration is what makes the workshop installable.
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
     const bar = document.querySelector(".topbar-right");
     if (!bar || $("#installApp")) return;
     const standalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -578,6 +582,10 @@
   function applyBuild(id, code) {
     const game = state.games.find((g) => g.id === id);
     if (!game || !code) return null;
+    if (state.gameScope && !state.gameScope(game)) {
+      toast("That game is not assigned to you.", "err");
+      return null;
+    }
     game.build = String(code);
     game.editedAt = new Date().toISOString();
     game.updated = "just now";
@@ -590,6 +598,11 @@
   function addBuildGame({ title, code, pitch, genre }) {
     const clean = String(title || "").trim();
     if (!clean || !code) return null;
+    // Workers only work on what the admin assigned; new games are the admin's call.
+    if (state.gameScope) {
+      toast("Workers can't create games — ask your admin to assign one.", "err");
+      return null;
+    }
     if (state.games.some((g) => g.title.toLowerCase() === clean.toLowerCase())) {
       toast("A game with that title is already in your library.", "err");
       return null;
