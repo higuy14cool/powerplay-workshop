@@ -99,6 +99,243 @@ size();draw(performance.now());
       },
     },
     {
+      id: "shooter",
+      match: ["shooter", "shoot", "space", "alien", "enemy", "laser", "blaster", "invader"],
+      icon: "▲",
+      name: "Blaster",
+      tagline: "A space shooter: move, fire, survive the wave.",
+      features: [
+        "Arrow keys or A/D to steer, space to fire",
+        "Enemies fall in a wave and speed up as the score climbs",
+        "Three lives and a game-over screen with restart",
+        "Everything runs in one canvas, no assets needed",
+      ],
+      screens: ["Title", "Play", "Game over"],
+      stack: ["HTML", "Canvas 2D", "Vanilla JS", "requestAnimationFrame"],
+      data: [["player", "x, y, cooldown"], ["bullets", "x, y, vy"], ["enemies", "x, y, vy, hp"]],
+      steps: [
+        ["Draw the ship", "A triangle and a key handler is the whole player."],
+        ["Add the weapon", "Spawn bullets on a cooldown, not every frame."],
+        ["Send the wave", "Spawn enemies on a timer and move them down."],
+        ["Make it fair", "Give three lives and a short invulnerable blink after a hit."],
+      ],
+      html() {
+        const script = `
+var cv=document.getElementById("cv"),cx=cv.getContext("2d");
+var scoreEl=document.getElementById("score"),livesEl=document.getElementById("lives");
+var keys={},player={x:180,y:300,cool:0},bullets=[],enemies=[],score=0,lives=3,over=false,raf=0,last=0,spawn=0;
+function size(){var r=cv.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2);cv.width=r.width*d;cv.height=r.height*d;cx.setTransform(d,0,0,d,0,0);player.y=r.height-34;player.x=Math.min(player.x,r.width-26);return r}
+function reset(){bullets=[];enemies=[];score=0;lives=3;over=false;spawn=0;player.x=cv.getBoundingClientRect().width/2;scoreEl.textContent="0";livesEl.textContent="3";document.getElementById("over").style.display="none"}
+function step(t){
+  var r=cv.getBoundingClientRect(),dt=Math.min((t-last)/16.7,3);last=t;
+  if(!over){
+    if((keys.ArrowLeft||keys.a))player.x-=5*dt;
+    if((keys.ArrowRight||keys.d))player.x+=5*dt;
+    player.x=Math.max(16,Math.min(r.width-16,player.x));
+    player.cool-=dt;
+    if((keys[" "]||keys.ArrowUp)&&player.cool<=0){bullets.push({x:player.x,y:player.y-16});player.cool=9}
+    bullets.forEach(function(b){b.y-=8*dt});
+    bullets=bullets.filter(function(b){return b.y>-10});
+    spawn+=dt;
+    if(spawn>55-Math.min(score*2,30)){spawn=0;enemies.push({x:20+Math.random()*(r.width-40),y:-16,vy:1.6+Math.random()*0.8+score*0.02,hp:1})}
+    enemies.forEach(function(e){e.y+=e.vy*dt});
+    enemies.forEach(function(e){
+      bullets.forEach(function(b){
+        if(e.hp>0&&Math.abs(b.x-e.x)<16&&Math.abs(b.y-e.y)<16){e.hp=0;b.y=-99;score++;scoreEl.textContent=score}
+      });
+    });
+    enemies=enemies.filter(function(e){return e.hp>0&&e.y<r.height+30});
+    enemies.forEach(function(e){
+      if(Math.abs(e.x-player.x)<22&&Math.abs(e.y-player.y)<22){
+        e.hp=0;lives--;livesEl.textContent=Math.max(lives,0);
+        if(lives<=0){over=true;document.getElementById("over").style.display="flex";
+          document.getElementById("over").innerHTML='<h2 style="margin:0 0 6px;font-size:26px">'+score+' down</h2><p class="sub">Wave over.</p><button class="btn" id="again">Play again</button>';
+          document.getElementById("again").onclick=reset}
+      }
+    });
+  }
+  cx.clearRect(0,0,r.width,r.height);
+  cx.fillStyle="#b8ff3d";cx.beginPath();cx.moveTo(player.x,player.y-14);cx.lineTo(player.x-11,player.y+10);cx.lineTo(player.x+11,player.y+10);cx.closePath();cx.fill();
+  cx.fillStyle="#e8ffb0";bullets.forEach(function(b){cx.fillRect(b.x-2,b.y,4,10)});
+  cx.fillStyle="#ff6b6b";enemies.forEach(function(e){cx.beginPath();cx.arc(e.x,e.y,11,0,7);cx.fill()});
+  raf=requestAnimationFrame(step);
+}
+document.addEventListener("keydown",function(e){keys[e.key]=1;if(e.key===" "||e.key==="ArrowLeft"||e.key==="ArrowRight")e.preventDefault()});
+document.addEventListener("keyup",function(e){keys[e.key]=0});
+document.getElementById("start").onclick=function(){reset();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(step)};
+window.addEventListener("resize",function(){size()});
+size();
+`;
+        return page(
+          "Blaster — space shooter",
+          "#b8ff3d",
+          `.stage{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.09);background:#07080d}
+           canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+           #over{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,7,11,.8);text-align:center;gap:6px}
+           .hud{display:flex;gap:8px;margin-bottom:10px}
+           .hud span{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8a91a6;border:1px solid rgba(255,255,255,.12);border-radius:99px;padding:4px 10px}
+           .hud b{color:#b8ff3d;margin-left:4px}`,
+          `<h1>Blaster</h1><p class="sub">Arrows to move, space to fire.</p>
+  <div class="hud"><span>score<b id="score">0</b></span><span>lives<b id="lives">3</b></span></div>
+  <div class="stage"><canvas id="cv"></canvas><div id="over"><button class="btn" id="start">Start wave</button></div></div>`,
+          script
+        );
+      },
+    },
+    {
+      id: "runner",
+      match: ["runner", "run", "jump", "platformer", "jump button", "endless", "obstacle", "sprint"],
+      icon: "➜",
+      name: "Dashline",
+      tagline: "An endless runner with one button: jump.",
+      features: [
+        "Tap, click or press space to jump — one input, readable timing",
+        "Obstacles speed up the longer you survive",
+        "Score counts distance, best run is kept for the session",
+        "Touch friendly: the whole stage is the jump button",
+      ],
+      screens: ["Play", "Game over"],
+      stack: ["HTML", "Canvas 2D", "Vanilla JS", "requestAnimationFrame"],
+      data: [["player", "y, vy, grounded"], ["obstacles", "x, w, h"], ["speed", "grows with distance"]],
+      steps: [
+        ["One verb", "Jump is the only control — everything else is difficulty."],
+        ["Ground and gravity", "A fixed gravity value makes jumps feel right."],
+        ["Spawn obstacles", "Timed gaps, not random chaos."],
+        ["Speed up slowly", "Raise speed with distance, cap it so it stays fair."],
+      ],
+      html() {
+        const script = `
+var cv=document.getElementById("cv"),cx=cv.getContext("2d");
+var scoreEl=document.getElementById("score"),bestEl=document.getElementById("best");
+var ground=0,py=0,vy=0,air=false,obs=[],speed=3.3,score=0,best=0,t=0,raf=0,dead=false,last=0;
+function size(){var r=cv.getBoundingClientRect(),d=Math.min(window.devicePixelRatio||1,2);cv.width=r.width*d;cv.height=r.height*d;cx.setTransform(d,0,0,d,0,0);ground=r.height-38;if(py===0)py=ground;return r}
+function jump(){if(dead){start();return}if(!air){vy=-9.2;air=true}}
+function start(){dead=false;obs=[];speed=3.3;score=0;py=ground;vy=0;air=false;t=0;scoreEl.textContent="0";document.getElementById("over").style.display="none"}
+function step(now){
+  var r=cv.getBoundingClientRect(),dt=Math.min((now-last)/16.7,3);last=now;
+  if(!dead){
+    t+=dt*0.055;score=Math.floor(t*10);scoreEl.textContent=score;
+    speed=Math.min(3.3+score*0.012,9);
+    vy+=0.62*dt;py+=vy*dt;
+    if(py>=ground){py=ground;vy=0;air=false}
+    if(!obs.length||obs[obs.length-1].x<r.width-150){
+      if(Math.random()<0.03)obs.push({x:r.width+10,w:16+Math.random()*16,h:20+Math.random()*22});
+    }
+    obs.forEach(function(o){o.x-=speed*dt});
+    obs=obs.filter(function(o){return o.x>-60});
+    obs.forEach(function(o){
+      if(o.x<58&&o.x+o.w>30&&py+26>ground-o.h){dead=true;best=Math.max(best,score);bestEl.textContent=best;
+        var ov=document.getElementById("over");ov.style.display="flex";
+        ov.innerHTML='<h2 style="margin:0 0 4px;font-size:26px">'+score+' m</h2><p class="sub">Best '+best+' m</p><button class="btn" id="again">Run again</button>';
+        document.getElementById("again").onclick=start}
+    });
+  }
+  cx.clearRect(0,0,r.width,r.height);
+  cx.strokeStyle="rgba(255,255,255,.12)";cx.beginPath();cx.moveTo(0,ground+26);cx.lineTo(r.width,ground+26);cx.stroke();
+  cx.fillStyle="#b8ff3d";cx.fillRect(34,py-6,24,30);
+  cx.fillStyle="#ff6b6b";obs.forEach(function(o){cx.fillRect(o.x,ground+26-o.h,o.w,o.h)});
+  raf=requestAnimationFrame(step);
+}
+cv.onpointerdown=function(e){e.preventDefault();jump()};
+document.addEventListener("keydown",function(e){if(e.key===" "||e.key==="ArrowUp"){e.preventDefault();jump()}});
+window.addEventListener("resize",size);
+size();last=performance.now();raf=requestAnimationFrame(step);
+`;
+        return page(
+          "Dashline — endless runner",
+          "#b8ff3d",
+          `.stage{position:relative;aspect-ratio:4/3;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.09);background:#07080d;touch-action:none}
+           canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:pointer}
+           #over{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,7,11,.78);text-align:center}
+           .hud{display:flex;gap:8px;margin-bottom:10px}
+           .hud span{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8a91a6;border:1px solid rgba(255,255,255,.12);border-radius:99px;padding:4px 10px}
+           .hud b{color:#b8ff3d;margin-left:4px}`,
+          `<h1>Dashline</h1><p class="sub">Tap the stage to jump. Don't stop.</p>
+  <div class="hud"><span>distance<b id="score">0</b></span><span>best<b id="best">0</b></span></div>
+  <div class="stage"><canvas id="cv"></canvas><div id="over"></div></div>`,
+          script
+        );
+      },
+    },
+    {
+      id: "memory",
+      match: ["memory", "match", "pairs", "cards", "flip", "concentration", "matching"],
+      icon: "▣",
+      name: "Pairup",
+      tagline: "A memory game: flip two cards, find the pairs.",
+      features: [
+        "A shuffled 4×4 board rebuilt on every new game",
+        "Two-card turns with a short reveal before flipping back",
+        "Move counter and a win state that shows your score",
+        "Keyboard reachable buttons, no drag needed",
+      ],
+      screens: ["Board", "Win"],
+      stack: ["HTML", "CSS grid", "Vanilla JS"],
+      data: [["deck", "symbol, matched"], ["open", "two indexes"], ["moves", "number"]],
+      steps: [
+        ["Shuffle", "Duplicate the symbols, then sort randomly."],
+        ["Flip two", "Lock the board while a pair is showing."],
+        ["Match or flip back", "Compare symbols, then hide both after a beat."],
+        ["Count moves", "Fewer moves is the score."],
+      ],
+      html() {
+        const script = `
+var board=document.getElementById("board"),movesEl=document.getElementById("moves"),msg=document.getElementById("msg");
+var syms=["◆","●","▲","■","✦","✚","◈","◐"],deck=[],open=[],moves=0,lock=false,found=0;
+function build(){
+  deck=syms.concat(syms).sort(function(){return Math.random()-0.5}).map(function(s){return {s:s,up:false,done:false}});
+  open=[];moves=0;found=0;lock=false;movesEl.textContent="0";msg.textContent="Find all 8 pairs.";
+  board.innerHTML="";
+  deck.forEach(function(c,i){
+    var b=document.createElement("button");
+    b.className="card";b.type="button";b.dataset.i=i;
+    b.addEventListener("click",function(){flip(i,b)});
+    board.appendChild(b);
+  });
+}
+function flip(i,b){
+  if(lock||deck[i].done||deck[i].up)return;
+  deck[i].up=true;b.textContent=deck[i].s;b.classList.add("up");
+  open.push(i);
+  if(open.length===2){
+    moves++;movesEl.textContent=moves;
+    var a=deck[open[0]],c=deck[open[1]];
+    if(a.s===c.s){
+      a.done=c.done=true;found++;
+      b.classList.add("done");
+      var prev=board.querySelector('[data-i="'+open[0]+'"]');if(prev)prev.classList.add("done");
+      open=[];
+      if(found===8){msg.textContent="Solved in "+moves+" moves."}
+      return;
+    }
+    lock=true;
+    setTimeout(function(){
+      open.forEach(function(k){deck[k].up=false;var el=board.querySelector('[data-i="'+k+'"]');if(el){el.textContent="";el.classList.remove("up")}});
+      open=[];lock=false;
+    },650);
+  }
+}
+document.getElementById("new").onclick=build;
+build();
+`;
+        return page(
+          "Pairup — memory match",
+          "#b8ff3d",
+          `#board{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px}
+           .card{aspect-ratio:1;border-radius:11px;border:1px solid rgba(255,255,255,.12);background:#12161f;color:#0a0b10;font-size:22px;cursor:pointer;transition:.15s}
+           .card.up{background:#b8ff3d;color:#0a0b10}
+           .card.done{background:#2a3520;color:#b8ff3d;border-color:rgba(184,255,61,.4);cursor:default}
+           .bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:12px;color:#8a91a6}
+           .bar b{color:#eef1f6}`,
+          `<h1>Pairup</h1><p class="sub">Flip two, keep the pair.</p>
+  <div class="bar"><span>moves <b id="moves">0</b></span><span id="msg">Find all 8 pairs.</span>
+    <button class="btn" id="new" style="margin-left:auto">New game</button></div>
+  <div id="board"></div>`,
+          script
+        );
+      },
+    },
+    {
       id: "timer",
       match: ["timer", "pomodoro", "focus", "countdown", "productivity", "clock"],
       icon: "◔",
@@ -480,15 +717,23 @@ render();
   let busy = false;
   let editingGame = null;
   const saveBtn = $("#saveToGame");
+  const saveNewBtn = $("#saveAsNew");
 
   function setEditingGame(game) {
     editingGame = game || null;
+    if (saveNewBtn) saveNewBtn.hidden = !editingGame;
     if (!saveBtn) return;
     saveBtn.hidden = !editingGame;
     if (editingGame) {
       saveBtn.textContent = `Save to ${editingGame.title}`;
-      saveBtn.title = `Replace ${editingGame.title}'s build with the code below`;
+      saveBtn.title = `Replace ${editingGame.title}'s playable build with the code below`;
     }
+  }
+
+  // A prompt that names a game type gets that build; otherwise the arcade loop.
+  function pickGameArchetype(prompt) {
+    const a = detect(prompt);
+    return a && ["shooter", "runner", "memory", "game"].includes(a.id) ? a : null;
   }
 
   function escapeHtml(v) {
@@ -665,8 +910,9 @@ render();
         return;
       }
 
-      // Editing a library game keeps the arcade-game archetype, whatever the wording.
-      const plan = buildPlan(trimmed, editingGame ? "game" : null);
+      // Editing a library game always yields a playable game build, never a tracker or timer.
+      const gameArchetype = editingGame ? pickGameArchetype(trimmed) : null;
+      const plan = buildPlan(trimmed, editingGame ? (gameArchetype ? gameArchetype.id : "game") : null);
       if (editingGame) {
         const title = escapeHtml(editingGame.title);
         plan.name = editingGame.title;
@@ -687,7 +933,9 @@ render();
 
       addMessage(
         "ai",
-        `Locked the blueprint for **${plan.name}** — ${plan.features.length} features, ${plan.screens.length} screens, and a working starter.${stackNote}${featureNote}\n\nThe **Plan** tab has the build order; **Code** has the full HTML file; **Preview** runs it right here. Want me to break down any step or add something like auth or saving?`
+        editingGame
+          ? `Here is a **${plan.archetype.name}** build for **${plan.name}**: ${plan.archetype.tagline.toLowerCase()} I read “${trimmed}” as the direction and shaped the loop around it.\n\nBe clear about what this is: it is a fresh, self-contained game in the same shape, not a patch of your original ${plan.name} file — the Architect has no model behind it, so it cannot rewrite your Three.js code. **Save as new game** keeps ${plan.name} untouched; **Save to ${plan.name}** swaps its playable build for this one, and *Restore original* puts the shipped version back.`
+          : `Locked the blueprint for **${plan.name}** — ${plan.features.length} features, ${plan.screens.length} screens, and a working starter.${stackNote}${featureNote}\n\nThe **Plan** tab has the build order; **Code** has the full HTML file; **Preview** runs it right here. Want me to break down any step or add something like auth or saving?`
       );
       busy = false;
     }, delay);
@@ -763,6 +1011,29 @@ render();
       : null;
     if (game) saveBtn.textContent = `Saved to ${game.title}`;
     else if (window.PowerplayApp) window.PowerplayApp.toast("That game is no longer in the library.", "err");
+  });
+
+  if (saveNewBtn) saveNewBtn.addEventListener("click", () => {
+    if (!editingGame) return;
+    if (!current || !current.code) {
+      if (window.PowerplayApp) window.PowerplayApp.toast("Nothing to save yet — ask for a change first.", "err");
+      return;
+    }
+    const base = current.name || editingGame.title;
+    let title = base;
+    if (window.PowerplayApp && window.PowerplayApp.getGames) {
+      const taken = window.PowerplayApp.getGames().some((g) => g.title.toLowerCase() === title.toLowerCase());
+      if (taken) title = `${base} (remix)`;
+    }
+    const game = window.PowerplayApp && window.PowerplayApp.addBuildGame
+      ? window.PowerplayApp.addBuildGame({
+          title,
+          code: current.code,
+          pitch: current.tagline,
+          genre: current.archetype ? current.archetype.name : "Arcade",
+        })
+      : null;
+    if (game) saveNewBtn.textContent = `Added “${game.title}”`;
   });
 
   $("#copyCode").addEventListener("click", async () => {

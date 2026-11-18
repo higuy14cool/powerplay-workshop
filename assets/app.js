@@ -422,6 +422,36 @@
     return game;
   }
 
+  function addBuildGame({ title, code, pitch, genre }) {
+    const clean = String(title || "").trim();
+    if (!clean || !code) return null;
+    if (state.games.some((g) => g.title.toLowerCase() === clean.toLowerCase())) {
+      toast("A game with that title is already in your library.", "err");
+      return null;
+    }
+    const game = {
+      id: "game-" + Date.now().toString(36),
+      title: clean,
+      genre: String(genre || "Arcade"),
+      status: "Prototype",
+      pitch: String(pitch || "").trim() || "Generated in the Architect.",
+      plays: 0,
+      hours: 0,
+      updated: "just now",
+      build: String(code),
+      editedAt: new Date().toISOString(),
+      cover: {
+        type: ["grid", "speed", "blocks", "orbits", "waves", "tiles"][state.games.length % 6],
+        colors: ["#b8ff3d", "#2dd4ef"],
+      },
+    };
+    state.games.unshift(game);
+    saveGames();
+    renderLibrary();
+    toast(`“${game.title}” added to your library.`);
+    return game;
+  }
+
   function revertBuild(id) {
     const game = state.games.find((g) => g.id === id);
     if (!game || !game.build) return null;
@@ -626,6 +656,7 @@
       openModal,
       closeModal,
       applyBuild,
+      addBuildGame,
       revertBuild,
       escapeHtml,
       formatNum,
