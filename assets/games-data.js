@@ -8,7 +8,7 @@
     {
       id: "ballistic",
       title: "BALLISTIC!",
-      genre: "Arcade",
+      genre: "Sports",
       status: "Released",
       pitch: "Dodgeball mayhem in 3D. Catch their throws, empty the court, be the last one standing.",
       cover: { image: "assets/covers/ballistic.jpg", colors: ["#ffd23f", "#e63946"] },

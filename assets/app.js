@@ -691,7 +691,20 @@
   function init() {
     const saved = loadGames();
     state.games = saved || SEED_GAMES.map((g) => ({ ...g }));
-    if (!saved) saveGames();
+    // Shipped genre labels come from the seed, so a saved copy picks up data changes.
+    if (saved) {
+      let changed = false;
+      state.games.forEach((g) => {
+        const seed = SEED_GAMES.find((s) => s.id === g.id);
+        if (seed && seed.genre !== g.genre) {
+          g.genre = seed.genre;
+          changed = true;
+        }
+      });
+      if (changed) saveGames();
+    } else {
+      saveGames();
+    }
     setupInstall();
     if (openPlayHash()) return;
     renderLibrary();
