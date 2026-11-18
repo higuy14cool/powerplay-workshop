@@ -581,6 +581,8 @@
     window.PowerplayApp = {
       toast,
       openGame,
+      openModal,
+      closeModal,
       escapeHtml,
       formatNum,
       getGames: () => state.games.slice(),

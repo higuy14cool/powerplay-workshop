@@ -720,7 +720,14 @@ render();
     tab.addEventListener("click", () => switchTab(tab.dataset.bp));
   });
 
-  $("#resetChat").addEventListener("click", resetChat);
+  $("#resetChat").addEventListener("click", () => {
+    window.PowerplayApp.openModal("reset");
+  });
+
+  $("#confirmReset").addEventListener("click", () => {
+    window.PowerplayApp.closeModal("reset");
+    resetChat();
+  });
 
   $("#copyCode").addEventListener("click", async () => {
     if (!current) return;

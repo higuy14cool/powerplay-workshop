@@ -127,7 +127,7 @@
             <strong>Architect</strong>
             <span class="muted">app planning co-pilot</span>
           </div>
-          <button class="icon-btn" id="resetChat" type="button" title="New conversation" aria-label="New conversation">
+          <button class="icon-btn" id="resetChat" type="button" title="New conversation" aria-label="New conversation" aria-haspopup="dialog">
             <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
@@ -278,6 +278,19 @@
         <button class="btn btn-lime" type="submit">Add to library</button>
       </div>
     </form>
+  </div>
+</div>
+
+<div class="modal" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="resetModalTitle" hidden>
+  <div class="modal-backdrop" data-close="reset"></div>
+  <div class="modal-card confirm-card">
+    <p class="eyebrow">// new conversation</p>
+    <h3 id="resetModalTitle">Clear this conversation?</h3>
+    <p class="confirm-text">Your chat, the blueprint, the starter code and the preview are all thrown away. This can't be undone.</p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" type="button" data-close="reset">Keep it</button>
+      <button class="btn btn-lime" type="button" id="confirmReset">Clear and start over</button>
+    </div>
   </div>
 </div>
 
