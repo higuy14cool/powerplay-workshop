@@ -642,6 +642,8 @@
 
     const playBtn = $("#playGameBtn");
     playBtn.hidden = !(game.url || game.build);
+    const manualBtn = $("#editManualBtn");
+    if (manualBtn) manualBtn.hidden = !(game.url || game.build);
     const installBtn = $("#installGameBtn");
     if (installBtn) {
       const target = installLink(game);
@@ -932,6 +934,21 @@
       if (game.build) openBuild(game);
       else if (game.url) window.open(game.url, "_blank", "noopener");
     });
+    // Same stage as Play now, opened straight into the manual editing tools.
+    const manualEditBtn = $("#editManualBtn");
+    if (manualEditBtn) {
+      manualEditBtn.addEventListener("click", () => {
+        const game = state.activeGame;
+        closeModal("game");
+        if (!game) return;
+        if (window.PowerplayStage) {
+          window.PowerplayStage.open(game, { edit: true });
+          return;
+        }
+        if (game.build) openBuild(game);
+        else if (game.url) window.open(game.url, "_blank", "noopener");
+      });
+    }
     $("#revertGameBtn").addEventListener("click", () => {
       const game = state.activeGame;
       if (!game) return;

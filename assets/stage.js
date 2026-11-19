@@ -697,8 +697,9 @@
     if (window.PowerplayApp && window.PowerplayApp.toast) window.PowerplayApp.toast(msg, kind);
   }
 
-  function open(nextGame) {
+  function open(nextGame, opts) {
     if (!stage || !nextGame) return;
+    const startEditing = !!(opts && opts.edit);
     game = nextGame;
     theme = themeFor(game);
     paintTheme();
@@ -717,7 +718,11 @@
     document.body.classList.add("locked");
     draw();
     paintHeader();
-    if (!parts.length) toast("This stage is empty — press Edit to add pieces.");
+    if (startEditing) {
+      enterEdit();
+    } else if (!parts.length) {
+      toast("This stage is empty — press Edit to add pieces.");
+    }
     $("#stageClose").focus({ preventScroll: true });
   }
 
