@@ -725,13 +725,46 @@ a.btn{text-decoration:none}
 .part-title{font-size:13px;font-weight:700;outline:none;border-radius:6px}
 .part-title[contenteditable="true"]{box-shadow:0 0 0 1px var(--pp-accent,rgba(184,255,61,.35));padding:1px 3px}
 .part-body{margin:0;font-size:12px;color:var(--muted);outline:none;border-radius:6px}
-.part-opts{display:flex;flex-wrap:wrap;gap:4px}
-.part-opt{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:#141928;color:var(--ink);cursor:pointer}
-.part-opt[aria-pressed="true"]{border-color:var(--pp-accent,var(--lime));color:var(--pp-accent,var(--lime));background:rgba(255,255,255,.06)}
-.part-opt .part-dot{display:inline-block;width:8px;height:8px;margin-right:5px;border-radius:50%;background:var(--opt-color,#9aa4b2);vertical-align:middle;box-shadow:0 0 0 1px rgba(255,255,255,.25)}
-.part-opt.part-add{color:var(--muted)}
-.part-toggle{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:#141928;color:var(--muted);cursor:pointer;align-self:flex-start}
-.part-toggle[aria-pressed="true"]{border-color:var(--pp-accent,var(--lime));color:#0b0e13;background:var(--pp-accent,var(--lime))}
+/* ---------- selections, drawn the way the game draws them ---------- */
+.pp-part.pp-selection,.pp-part.pp-mode{max-width:min(300px,80vw);width:max-content}
+.pp-part.pp-selection[data-layout="tile"]{width:min(280px,78vw)}
+.part-opts{display:flex;flex-wrap:wrap;gap:6px}
+.pp-part.pp-selection[data-layout="row"] .part-opts{flex-direction:column;flex-wrap:nowrap;align-items:stretch}
+.pp-part.pp-selection[data-layout="tile"] .part-opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.part-opt{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;padding:var(--pick-pad,8px 10px);border-radius:var(--pick-radius,10px);border:2px solid var(--pick-border,#38424f);background:var(--pick-bg,#1b2430);color:var(--pick-text,#e8eef7);cursor:pointer;text-align:left;line-height:1.2}
+.part-opt[aria-pressed="true"]{border-color:var(--pick-selected,var(--pp-accent,var(--lime)));box-shadow:0 0 0 2px color-mix(in srgb,var(--pick-selected,#84cc16) 28%,transparent)}
+.pp-part.pp-selection[data-layout="tile"] .part-opt{flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:6px;min-height:86px}
+.pick-name{font-weight:800;outline:none;border-radius:5px}
+.pick-name[contenteditable="true"]{box-shadow:0 0 0 1px var(--pp-accent,var(--lime));padding:0 2px}
+.pick-badge{display:grid;place-items:center;width:28px;height:28px;flex:0 0 auto;font-size:10px;font-weight:1000;font-style:normal;letter-spacing:.4px;color:#08150f;background:var(--opt-color,#94a3b8);box-shadow:inset 0 -4px 8px rgba(0,0,0,.2)}
+.pick-badge.is-circle{border-radius:50%}
+.pick-badge.is-square{border-radius:8px;width:32px;height:32px;font-size:12px}
+.pick-badge.is-dot{width:11px;height:11px;border-radius:50%;font-size:0;box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.part-opt.part-add{color:var(--pick-muted,var(--muted));justify-content:center;min-width:38px}
+/* ---------- the mode card, built like the game's own mode cards ---------- */
+.pp-part.pp-mode{width:min(250px,80vw);background:transparent;border:0;box-shadow:none;padding:0;backdrop-filter:none;gap:0}
+.pp-part.pp-mode .part-tag{background:rgba(8,10,16,.7);padding:2px 6px;border-radius:6px;align-self:flex-start;margin-bottom:3px}
+.mode-card{display:grid;gap:8px;padding:var(--mode-pad,12px);border-radius:var(--mode-radius,14px);border:2px solid var(--mode-border,#465a76);background:var(--mode-bg,#16233a);color:var(--mode-text,#e8eef7);box-shadow:0 14px 30px rgba(0,0,0,.45)}
+.mode-head{font-size:11px;font-weight:950;letter-spacing:.09em;text-transform:uppercase;color:var(--mode-muted,#93a5bb);outline:none;border-radius:5px}
+.mode-head[contenteditable="true"]{box-shadow:0 0 0 1px var(--pp-accent,var(--lime));padding:0 3px}
+.mode-items{display:grid;gap:6px;max-height:min(42vh,300px);overflow-y:auto;scrollbar-width:thin;padding-right:2px}
+.pp-mode-item{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:9px;padding:8px 9px;border-radius:calc(var(--mode-radius,14px) * .55);border:1px solid transparent;cursor:pointer}
+.pp-mode-item[aria-pressed="true"]{border-color:var(--mode-selected,#4ade80);background:rgba(255,255,255,.07)}
+.pp-mode-item:hover{border-color:color-mix(in srgb,var(--mode-selected,#4ade80) 45%,transparent)}
+.mode-emoji{background:transparent;border:0;padding:0;font-size:var(--mode-emoji,22px);line-height:1;cursor:pointer}
+.mode-text{display:grid;gap:2px;min-width:0}
+.mode-name{font-size:12.5px;font-weight:900;outline:none;border-radius:4px;overflow-wrap:anywhere}
+.mode-name[contenteditable="true"]{box-shadow:0 0 0 1px var(--pp-accent,var(--lime));padding:0 2px}
+.mode-sub{font-size:10px;color:var(--mode-muted,#93a5bb);outline:none;border-radius:4px;overflow-wrap:anywhere}
+.mode-sub[contenteditable="true"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--pp-accent,var(--lime)) 55%,transparent)}
+.pp-mode-item[aria-pressed="true"] .mode-name:before{content:"✓ ";color:var(--mode-selected,#4ade80)}
+.mode-del{display:none;background:transparent;border:0;color:#ff8f9a;font-size:13px;line-height:1;padding:0 2px;cursor:pointer}
+.play-stage.is-editing .mode-del{display:block}
+.mode-add{display:none;background:transparent;border:1px dashed var(--mode-border,#465a76);border-radius:8px;color:var(--mode-muted,#93a5bb);font-size:11px;font-weight:800;padding:6px;cursor:pointer}
+.play-stage.is-editing .mode-add{display:block}
+.emoji-palette{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin-top:6px;padding:6px;border-radius:9px;background:rgba(0,0,0,.45);border:1px solid var(--mode-border,#465a76)}
+.emoji-palette button{background:transparent;border:0;font-size:17px;line-height:1;padding:2px;cursor:pointer;border-radius:5px}
+.emoji-palette button:hover{background:rgba(255,255,255,.12)}
 .part-state{font-size:11px;color:var(--muted)}
 .pp-part.pp-game[data-picked="1"],.pp-part.pp-game.is-picked{border-color:var(--lime)}
 .part-del{position:absolute;top:-8px;right:-8px;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:#1a1020;color:#ff8f9a;font-size:13px;line-height:1;display:none;place-items:center;cursor:pointer}
@@ -753,6 +786,7 @@ a.btn{text-decoration:none}
   .stage-tools .btn-tiny{padding:5px 9px;font-size:11.5px}
   .stage-status{display:none}
   .pp-part{max-width:min(230px,60vw);padding:8px 10px}
+  .pp-part.pp-selection,.pp-part.pp-mode{padding:0;max-width:min(250px,78vw)}
   /* one scrollable row, so the bar never covers the middle of the game */
   .edit-tools{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;left:8px;right:8px;transform:none;max-width:none;padding:6px;scrollbar-width:thin}
   .edit-tool{flex:0 0 auto;font-size:11.5px;padding:7px 10px}
