@@ -27,11 +27,13 @@
       text: "#e8eef7",
       muted: "#93a5bb",
       selected: "#84cc16",
-      emoji: "20px",
+      emoji: "38px",
+      name: "18px",
+      desc: "12.5px",
     },
   };
 
-  const EMOJI = ["⭐", "🏆", "👥", "🌐", "🏟️", "⚡", "🥅", "📅", "🏀", "🏒", "🏈", "🎯", "🔥", "👑", "💎", "🚀", "🎮", "🛡️", "🎲", "📣", "🥇", "🎉"];
+  const EMOJI = ["⭐", "🏆", "👥", "🌐", "🏟️", "⚡", "🥅", "📅", "🏀", "🏒", "🏈", "🎯", "🔥", "👑", "💎", "🚀", "🎮", "🛡️", "🎲", "📣", "🥇", "🎉", "🤝", "🏅", "🆚", "🧤", "🎽", "⚽"];
 
   const GENERIC = {
     tool: { selection: "Add selection", mode: "Add mode", game: "Add game", box: "Add box" },
@@ -73,7 +75,15 @@
         { emoji: "⚡", name: "Futsal", sub: "Fast indoor soccer" },
         { emoji: "🥅", name: "Penalties", sub: "Test your penalty skills" },
       ],
-      formats: ["Futsal", "Classic match", "Classic match tournament", "2v2 match tournament"],
+      formats: [
+        { name: "Classic match", sub: "Full 11-a-side match" },
+        { name: "Futsal", sub: "Fast five-a-side indoor game" },
+        { name: "2v2 tournament · knockout stage", sub: "Penalty shootout if tied" },
+        { name: "2v2 tournament · group stage", sub: "Groups first, then the best go through" },
+        { name: "Penalties", sub: "Straight to a shootout" },
+        { name: "Classic match tournament · group stage", sub: "Cup groups, classic matches" },
+        { name: "Classic match tournament · knockout stage", sub: "Cup knockout, penalties if tied" },
+      ],
       box: "Match note",
       look: {
         /* ProKick's club tiles: dark green card, round club badge in club colours */
@@ -88,16 +98,18 @@
           selected: "#d9ff54",
           pad: "12px 8px 10px",
         },
-        /* ProKick's home mode cards */
+        /* ProKick's home mode cards: big emoji, bold title, two-line description */
         mode: {
-          bg: "linear-gradient(145deg,#153522,#0d2116)",
-          border: "#315840",
-          radius: "18px",
-          pad: "14px 12px",
-          text: "#f0fdf4",
-          muted: "#b5d4bf",
+          bg: "linear-gradient(150deg,#1a3d27,#0e2418)",
+          border: "#3c6a4d",
+          radius: "24px",
+          pad: "30px 26px 28px",
+          text: "#ffffff",
+          muted: "#c9e2d2",
           selected: "#4ade80",
-          emoji: "24px",
+          emoji: "50px",
+          name: "22px",
+          desc: "13.5px",
         },
       },
     },
@@ -137,12 +149,14 @@
         mode: {
           bg: "#16233a",
           border: "#465a76",
-          radius: "12px",
-          pad: "12px",
-          text: "#e8eef7",
-          muted: "#93a5bb",
+          radius: "16px",
+          pad: "24px 20px 22px",
+          text: "#ffffff",
+          muted: "#c8d4e6",
           selected: "#ffb057",
-          emoji: "22px",
+          emoji: "38px",
+          name: "18px",
+          desc: "12.5px",
         },
       },
     },
@@ -225,12 +239,14 @@
         mode: {
           bg: "#0b1b2e",
           border: "#29435e",
-          radius: "10px",
-          pad: "12px",
+          radius: "14px",
+          pad: "24px 20px 22px",
           text: "#ffffff",
-          muted: "#9fb1c7",
+          muted: "#a9bdd4",
           selected: "#f05a31",
-          emoji: "20px",
+          emoji: "38px",
+          name: "18px",
+          desc: "12.5px",
         },
       },
     },
@@ -268,12 +284,14 @@
         mode: {
           bg: "rgba(10,16,30,.55)",
           border: "rgba(255,255,255,.12)",
-          radius: "11px",
-          pad: "12px 10px",
+          radius: "14px",
+          pad: "22px 18px 20px",
           text: "#fff6dc",
-          muted: "rgba(255,246,220,.5)",
+          muted: "rgba(255,246,220,.62)",
           selected: "#ffd23f",
-          emoji: "20px",
+          emoji: "36px",
+          name: "18px",
+          desc: "12.5px",
         },
       },
     },
@@ -305,12 +323,14 @@
         mode: {
           bg: "#20242c",
           border: "#3a4150",
-          radius: "12px",
-          pad: "12px",
+          radius: "14px",
+          pad: "20px 18px 18px",
           text: "#e8eef7",
           muted: "#93a5bb",
           selected: "#84cc16",
-          emoji: "18px",
+          emoji: "30px",
+          name: "16px",
+          desc: "12px",
         },
       },
     },
@@ -397,23 +417,35 @@
       part.colors = first.map((o) => o.color || "");
     }
     if (kind === "mode") {
-      /* the whole mode list of the game, names and emoji included */
-      part.modes = theme.modes.map((m) => ({ emoji: m.emoji || "⭐", name: m.name, sub: m.sub || "" }));
-      part.picked = 0;
+      /* one card per mode: emoji, title and description, all editable.
+         New cards walk through the game's own modes so they read like the game. */
+      const pool = theme.modes && theme.modes.length ? theme.modes : [{ emoji: "⭐", name: "New mode", sub: "Your own mode" }];
+      const used = parts.filter((p) => p.kind === "mode").length;
+      const seed = pool[used % pool.length];
+      part.card = { emoji: seed.emoji || "⭐", name: seed.name, sub: seed.sub || "" };
+      part.picked = false;
+      delete part.modes;
       part.label = theme.modeTitle || theme.label.mode;
     }
     if (kind === "box") part.body = theme.box;
     return part;
   }
 
-  /* saved mode pieces from before the mode cards only had a label and a switch */
+  /* old mode pieces (a label, a switch, then a list of modes) become one card */
   function normalize(part) {
-    if (part.kind === "mode" && !Array.isArray(part.modes)) {
-      part.modes = theme.modes.map((m) => ({ emoji: m.emoji || "⭐", name: m.name, sub: m.sub || "" }));
-      part.picked = part.on === false ? -1 : 0;
-      part.label = theme.modeTitle || part.label || theme.label.mode;
-      delete part.on;
+    if (part.kind !== "mode") return part;
+    if (!part.card || typeof part.card !== "object") {
+      const list = Array.isArray(part.modes) && part.modes.length ? part.modes : theme.modes || [];
+      const pick = (typeof part.picked === "number" && list[part.picked]) || list[0] || {};
+      part.card = { emoji: pick.emoji || "⭐", name: pick.name || "New mode", sub: pick.sub || "" };
     }
+    if (!part.card.emoji) part.card.emoji = "⭐";
+    if (!part.card.name) part.card.name = "New mode";
+    if (typeof part.card.sub !== "string") part.card.sub = "";
+    part.picked = part.picked === true;
+    part.label = theme.modeTitle || part.label || theme.label.mode;
+    delete part.modes;
+    delete part.on;
     return part;
   }
 
@@ -439,17 +471,6 @@
     return `<span class="part-opt" role="button" tabindex="0" data-opt="${index}" aria-pressed="${!!active}">${renderBadge(text, color)}<b class="pick-name" data-optname="${index}" contenteditable="false" spellcheck="false">${esc(text)}</b></span>`;
   }
 
-  function renderModeItem(part) {
-    return (part.modes || [])
-      .map(
-        (m, i) => `<div class="pp-mode-item" role="button" tabindex="0" data-modeitem="${i}" aria-pressed="${part.picked === i}">
-          <button class="mode-emoji" type="button" data-emoji="${i}" title="Change the emoji">${esc(m.emoji || "⭐")}</button>
-          <span class="mode-text"><b class="mode-name" data-modename="${i}" contenteditable="false" spellcheck="false">${esc(m.name)}</b><small class="mode-sub" data-modesub="${i}" contenteditable="false" spellcheck="false">${esc(m.sub || "")}</small></span>
-          <button class="mode-del" type="button" data-delmode="${i}" title="Remove this mode">×</button>
-        </div>`
-      )
-      .join("");
-  }
 
   function renderPart(part) {
     const tag = `<span class="part-tag" title="Drag to move">⠿ ${esc(tags()[part.kind])}</span>`;
@@ -465,7 +486,12 @@
       const palette = open
         ? `<div class="emoji-palette">${EMOJI.map((e) => `<button type="button" data-setemoji="${esc(e)}">${esc(e)}</button>`).join("")}</div>`
         : "";
-      return `${tag}<div class="mode-card"><strong class="part-title mode-head" contenteditable="false" spellcheck="false">${esc(part.label)}</strong><div class="mode-items">${renderModeItem(part)}</div><button class="mode-add" type="button" data-addmode="1">+ Add mode</button></div>${palette}`;
+      const card = part.card || {};
+      return `${tag}<div class="mode-card">
+        <button class="mode-emoji" type="button" data-emoji="0" title="Change the emoji">${esc(card.emoji || "⭐")}</button>
+        <b class="mode-name" data-modename="0" contenteditable="false" spellcheck="false">${esc(card.name || "New mode")}</b>
+        <small class="mode-sub" data-modesub="0" contenteditable="false" spellcheck="false">${esc(card.sub || "")}</small>
+      </div>${palette}`;
     }
     if (part.kind === "game") {
       return `${tag}${label}<span class="part-state">${part.picked ? "Chosen" : "Tap to choose"}</span>`;
@@ -512,6 +538,9 @@
       el.style.setProperty("--mode-muted", l.muted);
       el.style.setProperty("--mode-selected", l.selected);
       el.style.setProperty("--mode-emoji", l.emoji);
+      el.style.setProperty("--mode-name", l.name || "18px");
+      el.style.setProperty("--mode-desc", l.desc || "12.5px");
+      el.dataset.picked = part.picked ? "1" : "0";
     }
   }
 
@@ -619,6 +648,11 @@
     applyEditable();
   }
 
+  /* a theme's match list: plain names, or names with a description */
+  function formatList() {
+    return theme.formats.map((f) => (typeof f === "string" ? { name: f, sub: "" } : f));
+  }
+
   /* the toolbar and the match picker speak the game's language */
   function paintTheme() {
     tools.querySelectorAll(".edit-tool[data-tool]").forEach((btn) => {
@@ -627,8 +661,13 @@
     });
     const list = chooser && chooser.querySelector(".format-list");
     if (list) {
-      list.innerHTML = theme.formats
-        .map((f) => `<button class="format-opt" type="button" data-format="${esc(f)}">${esc(f)}</button>`)
+      list.innerHTML = formatList()
+        .map(
+          (f) =>
+            `<button class="format-opt" type="button" data-format="${esc(f.name)}"><b>${esc(f.name)}</b>${
+              f.sub ? `<small>${esc(f.sub)}</small>` : ""
+            }</button>`
+        )
         .join("");
       list.querySelectorAll("[data-format]").forEach((btn) =>
         btn.addEventListener("click", () => addGamePart(btn.dataset.format))
@@ -730,7 +769,7 @@
     if (tool === "selection") place("selection", x, y);
     else if (tool === "mode") place("mode", x, y);
     else if (tool === "box") place("box", x, y);
-    else if (tool === "game") place("game", x, y, pendingFormat || theme.formats[0]);
+    else if (tool === "game") place("game", x, y, pendingFormat || formatList()[0].name);
     pendingFormat = "";
     tool = "";
     tools.querySelectorAll(".edit-tool[data-tool]").forEach((btn) => btn.classList.remove("is-active"));
@@ -761,27 +800,8 @@
       applyEditable();
       return;
     }
-    // the mode card: its name, its emoji and extra modes are edits
+    // the mode card: its emoji is an edit, its title and description are typed in place
     if (part.kind === "mode") {
-      const delBtn = e.target.closest("[data-delmode]");
-      if (delBtn) {
-        if (!editing) return;
-        part.modes.splice(Number(delBtn.dataset.delmode), 1);
-        if (part.picked >= part.modes.length) part.picked = part.modes.length - 1;
-        emojiTarget = null;
-        store();
-        draw();
-        applyEditable();
-        return;
-      }
-      if (e.target.closest("[data-addmode]")) {
-        if (!editing) return;
-        part.modes.push({ emoji: "⭐", name: "New mode", sub: "Your own mode" });
-        store();
-        draw();
-        applyEditable();
-        return;
-      }
       const emojiBtn = e.target.closest("[data-emoji]");
       if (emojiBtn) {
         if (!editing) return;
@@ -794,7 +814,7 @@
       }
       const picked = e.target.closest("[data-setemoji]");
       if (picked && emojiTarget && emojiTarget.id === part.id) {
-        if (part.modes[emojiTarget.index]) part.modes[emojiTarget.index].emoji = picked.dataset.setemoji;
+        part.card.emoji = picked.dataset.setemoji;
         emojiTarget = null;
         store();
         draw();
@@ -802,13 +822,9 @@
         return;
       }
       if (editing) return;
-      const item = e.target.closest("[data-modeitem]");
-      if (item) {
-        const i = Number(item.dataset.modeitem);
-        part.picked = part.picked === i ? -1 : i;
-        store();
-        draw();
-      }
+      part.picked = !part.picked;
+      store();
+      draw();
       return;
     }
 
@@ -838,11 +854,9 @@
       const i = Number(node.dataset.optname);
       if (part.options && part.options[i] != null) part.options[i] = text.slice(0, 40) || `Option ${i + 1}`;
     } else if (node.classList.contains("mode-name")) {
-      const i = Number(node.dataset.modename);
-      if (part.modes && part.modes[i]) part.modes[i].name = text.slice(0, 48) || "Mode";
+      if (part.card) part.card.name = text.slice(0, 48) || "New mode";
     } else if (node.classList.contains("mode-sub")) {
-      const i = Number(node.dataset.modesub);
-      if (part.modes && part.modes[i]) part.modes[i].sub = text.slice(0, 120);
+      if (part.card) part.card.sub = text.slice(0, 160);
     } else if (node.classList.contains("part-title")) {
       part.label = text.slice(0, 60) || tags()[part.kind];
     } else {
@@ -865,7 +879,7 @@
     const el = e.target.closest(".pp-part");
     if (!el) return;
     // buttons, options and the text fields keep their own taps; the tag row is the grip
-    if (e.target.closest("[data-del], button, .part-opt, .part-title, .part-body, .pp-mode-item, .mode-text")) return;
+    if (e.target.closest("[data-del], button, .part-opt, .part-title, .part-body, .mode-card, .mode-name, .mode-sub")) return;
     const part = partById(el.dataset.id);
     if (!part) return;
     const rect = layer.getBoundingClientRect();
@@ -938,5 +952,5 @@
     return load(gameId).length;
   }
 
-  window.PowerplayStage = { open, close, bind, partCount, KEY, get FORMATS() { return theme.formats.slice(); }, themeFor };
+  window.PowerplayStage = { open, close, bind, partCount, KEY, get FORMATS() { return formatList().map((f) => f.name); }, themeFor };
 })();
