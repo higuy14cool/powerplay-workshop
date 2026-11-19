@@ -781,3 +781,41 @@ body.pp-fs{overflow:hidden}
 .panel.pp-fullscreen .code-block{max-height:none;font-size:12.6px}
 .panel.pp-fullscreen #previewFrame{height:auto;overflow:hidden}
 .panel.pp-fullscreen .bp-placeholder{max-width:none;height:auto}
+
+/* Full screen, side by side: the Architect chat and the blueprint together. */
+.architect-grid.pp-split{
+  position:fixed;inset:0;z-index:130;margin:0;width:100%;height:100%;max-width:none;
+  display:grid;grid-template-columns:minmax(300px,26%) minmax(0,1fr);
+  grid-template-areas:"chat blueprint";gap:12px;padding:12px;
+  background:linear-gradient(180deg,#0d1019,#080a11);overflow:hidden;align-items:stretch;
+}
+.architect-grid.pp-split .chat-panel{grid-area:chat}
+.architect-grid.pp-split .blueprint-panel{grid-area:blueprint}
+.architect-grid.pp-split .panel{
+  height:100%;min-height:0;max-height:none;display:flex;flex-direction:column;overflow:hidden;
+}
+.architect-grid.pp-split .panel-head{gap:8px;padding:12px}
+.architect-grid.pp-split .lemon-link{padding:6px}
+.architect-grid.pp-split .lemon-link span{display:none}
+.architect-grid.pp-split .chat-log{max-height:none;flex:1 1 auto;min-height:0}
+.architect-grid.pp-split .bp-body{flex:1 1 auto;min-height:0}
+.architect-grid.pp-split .bp-view.is-active{
+  display:flex;flex-direction:column;flex:1 1 auto;min-height:0;max-height:none;overflow:hidden;
+}
+.architect-grid.pp-split .bp-view.is-active > .code-toolbar,
+.architect-grid.pp-split .bp-view.is-active > .preview-bar{flex:0 0 auto}
+.architect-grid.pp-split .bp-view.is-active > .code-block,
+.architect-grid.pp-split .bp-view.is-active > #previewFrame,
+.architect-grid.pp-split .bp-view.is-active > .bp-doc,
+.architect-grid.pp-split .bp-view.is-active > .bp-placeholder{flex:1 1 auto;min-height:0;overflow:auto}
+.architect-grid.pp-split .code-block{max-height:none}
+.architect-grid.pp-split #previewFrame{height:auto;overflow:hidden}
+.architect-grid.pp-split .bp-placeholder{max-width:none;height:auto}
+@media (max-width:820px){
+  .architect-grid.pp-split{
+    grid-template-columns:1fr;grid-template-rows:minmax(300px,50%) minmax(0,1fr);
+    grid-template-areas:"chat" "blueprint";gap:10px;padding:10px;
+  }
+  .architect-grid.pp-split .chips-row,
+  .architect-grid.pp-split .composer-hint{display:none}
+}

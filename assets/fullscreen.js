@@ -4,7 +4,8 @@
 
   var TARGETS = {
     chat: function () { return document.querySelector(".chat-panel"); },
-    blueprint: function () { return document.getElementById("blueprintPanel"); }
+    blueprint: function () { return document.getElementById("blueprintPanel"); },
+    split: function () { return document.querySelector(".architect-grid"); }
   };
 
   // Narrower arrow corners when expanded, wider when collapsed.
@@ -25,7 +26,9 @@
     buttons().forEach(function (btn) {
       const active = !!open && open.targetName === btn.dataset.fs;
       btn.setAttribute('aria-pressed', String(active));
-      const label = btn.dataset.fs === 'chat' ? 'chat' : 'code, preview and plan';
+      const label = btn.dataset.fs === 'chat' ? 'chat'
+        : btn.dataset.fs === 'split' ? 'chat and blueprint'
+        : 'code, preview and plan';
       btn.title = active ? 'Exit full screen (Esc)' : 'Full screen ' + label;
       btn.setAttribute('aria-label', btn.title);
       const svg = btn.querySelector('svg');
@@ -35,7 +38,7 @@
 
   function close() {
     if (!open) return;
-    open.target.classList.remove('pp-fullscreen');
+    open.target.classList.remove('pp-fullscreen', 'pp-split');
     document.body.classList.remove('pp-fs');
     const previous = open.button;
     open = null;
@@ -48,12 +51,13 @@
     if (!target) return;
     if (open && open.target === target) { close(); return; }
     close();
-    target.classList.add('pp-fullscreen');
+    target.classList.add(btn.dataset.fs === 'split' ? 'pp-split' : 'pp-fullscreen');
     document.body.classList.add('pp-fs');
     open = { targetName: btn.dataset.fs, target: target, button: btn };
     paint();
-    const log = target.querySelector('.chat-log, .bp-body');
-    if (log && log.scrollTo) log.scrollTo({ top: log.scrollHeight });
+    target.querySelectorAll('.chat-log, .bp-body').forEach(function (scroller) {
+      scroller.scrollTo({ top: scroller.scrollHeight });
+    });
   }
 
   document.addEventListener('click', function (event) {
