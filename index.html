@@ -172,6 +172,10 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-3.6 10.8c.5.4.8 1 .8 1.6V17h5.6v-1.6c0-.6.3-1.2.8-1.6A6 6 0 0 0 12 3ZM9.5 20h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             <span>Lemoncode assistant</span>
           </a>
+          <button class="icon-btn js-fullscreen" type="button" data-fs="chat">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path class="fs-out" d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill-rule="evenodd"/></svg>
+            <span class="sr-only">Full screen chat</span>
+          </button>
           <button class="icon-btn" id="resetChat" type="button" title="New conversation" aria-label="New conversation" aria-haspopup="dialog">
             <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
@@ -219,6 +223,10 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
             <button class="bp-tab" data-bp="code" type="button" role="tab" aria-selected="false">Code</button>
             <button class="bp-tab" data-bp="preview" type="button" role="tab" aria-selected="false">Preview</button>
           </div>
+          <button class="icon-btn js-fullscreen" type="button" data-fs="blueprint" title="Full screen blueprint (Esc to exit)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="sr-only">Full screen blueprint</span>
+          </button>
         </div>
 
         <div class="bp-body">
@@ -636,6 +644,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 <script src="assets/autosave.js"></script>
 <script src="assets/games-data.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/fullscreen.js"></script>
 <script src="assets/architect.js"></script>
 <script src="assets/architect-chats.js"></script>
 <script src="assets/ai.js"></script>
