@@ -848,18 +848,25 @@
     $("#year").textContent = new Date().getFullYear();
 
     // The browser's password manager likes to drop the saved login name into any stray
-    // text box on the page. The search box starts read-only so it cannot be pre-filled,
-    // any value that still lands there is cleared, and it unlocks on first touch.
+    // text box on the page, at any moment. The search box starts read-only so it cannot
+    // be pre-filled, it is emptied until it is genuinely used, and it unlocks on first touch.
     const search = $("#searchGames");
+    let searchUsed = false;
     const clearStraySearch = () => {
-      if (!state.search && search.value) search.value = "";
+      if (!searchUsed && search.value) search.value = "";
     };
+    let watcher = null;
     const armSearch = () => {
-      search.removeAttribute("readonly");
       clearStraySearch();
+      searchUsed = true;
+      search.removeAttribute("readonly");
+      if (watcher) clearInterval(watcher);
+      watcher = null;
     };
     ["pointerdown", "focus", "keydown"].forEach((ev) => search.addEventListener(ev, armSearch));
-    [250, 900, 2000].forEach((ms) => setTimeout(clearStraySearch, ms));
+    window.addEventListener("pageshow", clearStraySearch);
+    document.addEventListener("visibilitychange", clearStraySearch);
+    watcher = setInterval(clearStraySearch, 400);
 
     search.addEventListener("input", (e) => {
       state.search = e.target.value;
