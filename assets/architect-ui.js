@@ -1289,6 +1289,26 @@ render();
       return;
     }
 
+    // A message that names one of the games is an edit of that game, not a new build.
+    if (!editingGame) {
+      const named = namedGame(trimmed);
+      const newBuild = /^\s*(?:please\s+)?(?:make|build|create)\b[\s\S]{0,25}\b(a|an|another)\b/i.test(trimmed);
+      if (named && !newBuild && EDIT_VERB.test(trimmed) && !missingChange(trimmed) && !noChangeWords(trimmed) && !workerBlock(named)) {
+        setEditingGame(named);
+        addMessage("ai", `Editing **${named.title}** — I'll change only that game's file, nothing else.`);
+      }
+    }
+
+    // "Add a new feature to ProKick, a sports game:" with nothing after the colon:
+    // ask which feature instead of guessing at one.
+    const target = editingGame || namedGame(trimmed);
+    if (missingChange(trimmed) || (EDIT_VERB.test(trimmed) && target && !isQuestion(trimmed) && noChangeWords(trimmed))) {
+      hideTyping();
+      askForChange(target);
+      busy = false;
+      return;
+    }
+
     // A real model builds what was asked; the template planner is only the fallback.
     if (window.PowerplayAI && window.PowerplayAI.ready()) {
       respondWithAI(trimmed);
@@ -1306,6 +1326,8 @@ render();
     "If the request is ambiguous, take the most likely reading and name it in one short line.",
     "If they ask a question or how something works, answer it plainly in 2-4 short paragraphs, no code.",
     "When you are changing an app or game that already exists, you are adding to it: send only the small FIND/REPLACE, ADD AFTER or APPEND blocks the request below describes, never the whole file back, and never restyle or rewrite what was not asked about.",
+    "A message shaped like 'Add a new feature to X, a game:' with nothing after the colon names no feature. Never invent one and never build a new game for it: ask what the feature should be, with two or three short examples.",
+    "Never answer a change request with a complete different app or game. If you cannot tell what to change, ask one short question and wait.",
     "When changing an existing app, if their words could mean two different things or do not say where the change goes, ask ONE short question and wait instead of guessing.",
     "When you build: open with 2-4 sentences saying what the app does and how to use or play it, then exactly one ```html fence holding one complete file. Everything inline (style and script), no CDN, no imports, no external images or fonts, no build step: it must run by opening the file.",
     "Give it real working controls for keyboard, mouse and touch, a score or result the player can see, and a restart. Use no library unless the user asks for one.",
@@ -1321,6 +1343,88 @@ render();
   function isBuildAsk(text) {
     const t = String(text || "");
     return BUILD_ASK.test(t) || /\b(make|build|create|rewrite)\b[\s\S]{0,40}\b(game|app|site|website|quiz|tool|page|player|level)\b/i.test(t);
+  }
+
+  // The Edit button pre-fills "Add a new feature to <title>, a <genre> game: ".
+  // Pressing Enter with nothing after the colon asks for a change that was never
+  // described: that gets a question back, never a guessed build.
+  const EDIT_VERB = /^(?:\s*(?:please|hey|ok|now|so)\s+)*(?:add|change|edit|update|fix|remove|delete|rename|make|improve|tweak|upgrade)\b/i;
+  const FILLER_WORDS =
+    /\b(a|an|the|new|feature|features|game|games|app|apps|website|site|page|level|mode|please|kindly|to|for|in|on|at|with|me|my|it|its|and|or|some|something|anything|stuff|thing|things|just|really|now|again|also|thanks|thank|you|can|could|would|want|need|i|we|make|made|build|create|add|change|edit|update|fix|remove|delete|improve|tweak|upgrade|rename|there)\b/gi;
+
+  function libraryGames() {
+    const out = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem("powerplay.games.v3") || "[]");
+      if (Array.isArray(saved)) saved.forEach((g) => { if (g && g.title) out.push(g); });
+    } catch (e) { /* a broken store just means the seeds below */ }
+    const seed = window.PowerplayGames && Array.isArray(window.PowerplayGames.GAMES) ? window.PowerplayGames.GAMES : [];
+    seed.forEach((g) => { if (g && g.title && !out.some((o) => o.id === g.id)) out.push(g); });
+    return out;
+  }
+
+  function escapeRe(text) {
+    return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /** The game whose title or id is named in the message, if any. */
+  function namedGame(text) {
+    const t = " " + String(text || "").toLowerCase().replace(/[!?.,]/g, "") + " ";
+    let best = null;
+    libraryGames().forEach((g) => {
+      const title = String(g.title || "").toLowerCase().replace(/[!?.,]/g, "");
+      const id = String(g.id || "").toLowerCase();
+      const hit = (title.length > 2 && t.includes(title)) || (id.length > 2 && new RegExp("\\b" + escapeRe(id) + "\\b").test(t));
+      if (hit && (!best || title.length > String(best.title).length)) best = g;
+    });
+    return best;
+  }
+
+  /** True when the message is the edit template with nothing after its colon. */
+  function missingChange(text) {
+    const raw = String(text || "").trim();
+    const m = raw.match(/^(?:please\s+)?(?:add|change|edit|update|give|make)\b[\s\S]{0,140}?:\s*([\s\S]*)$/i);
+    if (!m) return false;
+    return !/[a-z0-9]{2,}/i.test(m[1].replace(/\[[^\]]*\]/g, " "));
+  }
+
+  /** An edit ask that names a game but never says what should change. */
+  function noChangeWords(text) {
+    let body = " " + String(text || "") + " ";
+    const head = body.match(/^(?:please\s+)?(?:add|change|edit|update|fix|remove|delete|give|make)\b[\s\S]{0,140}?:/i);
+    if (head) body = body.slice(head[0].length);
+    libraryGames().forEach((g) => {
+      body = body.replace(new RegExp(escapeRe(g.title), "gi"), " ").replace(new RegExp("\\b" + escapeRe(g.id) + "\\b", "gi"), " ");
+    });
+    return !/[a-z0-9]{2,}/i.test(body.replace(FILLER_WORDS, " ").replace(/\[[^\]]*\]/g, " "));
+  }
+
+  // No AI, no guessing: an existing game is never swapped for a made-up one.
+  function answerWithoutAI() {
+    const label = editingGame ? editingGame.title : "your game";
+    hideTyping();
+    addMessage(
+      "ai",
+      `The AI can't answer right now, so **${label}** is untouched — nothing was replaced and no new game was made.\n\n` +
+        "Try again in a minute; if it keeps happening, add your own key under **AI settings** (the chip at the top of this panel). " +
+        `You can also write the change straight into the Code tab and press **Save to ${label}**.`
+    );
+    busy = false;
+  }
+
+  function askForChange(game) {
+    const label = game ? game.title : "your game";
+    const genre = game && game.genre ? String(game.genre).toLowerCase() : "game";
+    addMessage(
+      "ai",
+      `I need to know **what** to change in **${label}** — your message says to add a feature but not which one.\n\n` +
+        "Finish the line after the colon, for example:\n" +
+        `- \`Add a new feature to ${label}, a ${genre} game: a power meter that fills while you charge a shot\`\n` +
+        `- \`Add a new feature to ${label}, a ${genre} game: a two-minute tournament mode with a scoreboard\`\n` +
+        `- \`Add a new feature to ${label}, a ${genre} game: crowd sound when you score\`\n\n` +
+        "**Nothing was changed and no new game was made.** Tell me the feature and I'll add only that to " +
+        `${label}’s file.`
+    );
   }
 
   // An answer cut off at the token limit has no closing fence, so take everything
@@ -1579,11 +1683,12 @@ render();
         } else if (blocks.length || patchTried) {
           plan.code = "";             // never replace the game with a patch that missed
         } else if (plan.code) {
-          // A whole file is only taken if it really is one: a big game must never
-          // be swapped for a stray snippet the model sent instead of blocks.
+          // A whole file is only taken if the user asked for a rewrite: a change
+          // request must never turn into a different game in their library.
           const asDoc = /<!doctype|<html|<body/i.test(plan.code);
           const shrunk = base.length > PATCH_MAX && plan.code.length < base.length * 0.5;
-          if (!asDoc || shrunk) { plan.code = ""; junk = true; }
+          const askedRewrite = /\b(rewrite|rebuild|start over|from scratch|new version of the (whole |entire )?(file|game|code)|replace (it|the (whole |entire )?(file|game|code)))\b/i.test(trimmed);
+          if (!asDoc || shrunk || !askedRewrite) { plan.code = ""; junk = true; }
         }
       } else if (plan.code && (out.truncated || !looksWhole(plan.code))) {
         // A cut-off answer is asked for again as a compact file that fits the limit.
@@ -1631,7 +1736,7 @@ render();
       } else if (editingGame && junk) {
         addMessage(
           "ai",
-          `The AI sent something that wasn't a usable change to **${editingGame.title}**, so your game is exactly as it was. Say again what to add (and where, if it has a spot), or write it in the Code tab.`
+          `That answer described a different build, not a change to **${editingGame.title}** — so your game is exactly as it was, and no new game was added.\n\nSay what to add in a few words (for example “a power meter for shots”) and I'll patch only that into the file.`
         );
         if (window.PowerplayApp) window.PowerplayApp.toast("Nothing was changed — the answer wasn't usable.", "err");
       } else if (editingGame && patchTried) {
@@ -1646,6 +1751,7 @@ render();
     } catch (err) {
       clearInterval(ticker);
       hideTyping();
+      if (editingGame) { answerWithoutAI(); return; }
       addMessage(
         "ai",
         `**The AI could not answer.** ${err && err.message ? err.message : "Unknown error."}\n\nI'm falling back to the offline builder so you still get something — and the AI settings (the chip at the top of this panel) let you switch engines.`
@@ -1682,22 +1788,19 @@ render();
         return;
       }
 
-      // Editing a library game always yields a playable game build, never a tracker or timer.
-      const gameArchetype = editingGame ? pickGameArchetype(trimmed) || genreArchetype(editingGame) : null;
-      const plan = buildPlan(trimmed, gameArchetype ? gameArchetype.id : null);
+      // Changing an existing game without an AI means inventing a feature, and a
+      // template game dropped on top of theirs is how "it made its own game" happens.
+      // Say so and leave their game exactly as it is.
       if (editingGame) {
-        const title = escapeHtml(editingGame.title);
-        plan.name = editingGame.title;
-        plan.code = plan.code
-          .replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`)
-          .replace(/<h1([^>]*)>[^<]*<\/h1>/, `<h1$1>${title}</h1>`)
-          .replace(/var TOPIC = "[^"]*";/, `var TOPIC = ${JSON.stringify(editingGame.title)};`);
+        answerWithoutAI();
+        return;
       }
-      renderPlan(plan);
-      // Games land on the code tab, where Save to game / Save as new game live.
-      const isGamePlan = ["game", "shooter", "runner", "memory", "sports", "quiz"].includes(plan.archetype.id);
-      switchTab(editingGame || isGamePlan ? "code" : "plan");
 
+      const plan = buildPlan(trimmed, null);
+      renderPlan(plan);
+      const isGamePlan = ["game", "shooter", "runner", "memory", "sports", "quiz"].includes(plan.archetype.id);
+      switchTab(isGamePlan ? "code" : "plan");
+      
       const stackNote = plan.mentions.length
         ? ` I kept your ${plan.mentions.join(" / ")} preference in the stack and used a vanilla reference build for the starter.`
         : "";
