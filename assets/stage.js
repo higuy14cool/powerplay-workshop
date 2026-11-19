@@ -4,7 +4,7 @@
   const FORMATS = ["Futsal", "Classic match", "Classic match tournament", "2v2 match tournament"];
 
   const $ = (sel) => document.querySelector(sel);
-  let stage, frame, layer, tools, tip, chooser, titleEl, statusEl, openTab;
+  let stage, frame, layer, tools, tip, chooser, titleEl, statusEl, openTab, fullBtn;
   let game = null;
   let parts = [];
   let editing = false;
@@ -93,6 +93,63 @@
     return parts.find((p) => p.id === id);
   }
 
+  /* ---------- full screen ---------- */
+  const FS_OUT =
+    '<path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+  const FS_IN =
+    '<path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  const fsElement = () =>
+    document.fullscreenElement || document.webkitFullscreenElement || null;
+
+  function canFullScreen() {
+    return !!(stage && (stage.requestFullscreen || stage.webkitRequestFullscreen));
+  }
+
+  function isFullScreen() {
+    return !!stage && fsElement() === stage;
+  }
+
+  function requestFull() {
+    if (!stage) return;
+    const el = stage;
+    const run = el.requestFullscreen || el.webkitRequestFullscreen;
+    try {
+      const done = run.call(el, { navigationUI: "hide" });
+      if (done && done.catch) done.catch(() => {});
+    } catch (err) {
+      /* the browser refused (no user gesture, or unsupported): stay windowed */
+    }
+  }
+
+  function exitFull() {
+    if (!fsElement()) return;
+    const run = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!run) return;
+    try {
+      const done = run.call(document);
+      if (done && done.catch) done.catch(() => {});
+    } catch (err) {
+      /* nothing to undo */
+    }
+  }
+
+  function paintFull() {
+    if (!fullBtn) return;
+    fullBtn.hidden = !canFullScreen();
+    const on = isFullScreen();
+    fullBtn.setAttribute("aria-pressed", String(on));
+    fullBtn.title = on ? "Exit full screen (Esc)" : "Full screen";
+    fullBtn.setAttribute("aria-label", fullBtn.title);
+    const svg = fullBtn.querySelector("svg");
+    if (svg) svg.innerHTML = on ? FS_IN : FS_OUT;
+  }
+
+  function toggleFull() {
+    if (isFullScreen()) exitFull();
+    else requestFull();
+  }
+
   /* ---------- stage ---------- */
   function paintHeader() {
     titleEl.textContent = game ? game.title : "Game";
@@ -105,6 +162,7 @@
       openTab.hidden = !href;
       if (href) openTab.href = href;
     }
+    paintFull();
   }
 
   function applyEditable() {
@@ -171,6 +229,7 @@
 
   function close() {
     if (!stage) return;
+    exitFull();
     stage.hidden = true;
     document.body.classList.remove("locked");
     closeModal();
@@ -318,9 +377,13 @@
     titleEl = $("#stageTitle");
     statusEl = $("#stageStatus");
     openTab = $("#stageOpenTab");
+    fullBtn = $("#stageFull");
 
     $("#stageEdit").addEventListener("click", () => (editing ? exitEdit() : enterEdit()));
     $("#stageClose").addEventListener("click", close);
+    if (fullBtn) fullBtn.addEventListener("click", toggleFull);
+    document.addEventListener("fullscreenchange", paintFull);
+    document.addEventListener("webkitfullscreenchange", paintFull);
     $("#editDone").addEventListener("click", exitEdit);
     tools.querySelectorAll(".edit-tool[data-tool]").forEach((btn) => btn.addEventListener("click", () => onTool(btn.dataset.tool)));
     layer.addEventListener("click", onLayerClick);
@@ -337,11 +400,12 @@
       chooser.querySelector(".modal-backdrop")?.addEventListener("click", closeModal);
     }
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && stage && !stage.hidden) {
-        if (chooser && !chooser.hidden) closeModal();
-        else if (editing) exitEdit();
-        else close();
-      }
+      if (e.key !== "Escape" || !stage || stage.hidden) return;
+      // In full screen the first Esc only leaves full screen; the next one closes the game.
+      if (isFullScreen()) { e.preventDefault(); exitFull(); return; }
+      if (chooser && !chooser.hidden) closeModal();
+      else if (editing) exitEdit();
+      else close();
     });
   }
 

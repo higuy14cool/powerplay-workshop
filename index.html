@@ -609,6 +609,9 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     <strong id="stageTitle">Game</strong>
     <span class="stage-status" id="stageStatus">Playing</span>
     <div class="stage-tools">
+      <button class="icon-btn" id="stageFull" type="button" title="Full screen" aria-label="Full screen" aria-pressed="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <a class="btn btn-ghost btn-tiny" id="stageOpenTab" href="#" target="_blank" rel="noopener">Open in new tab</a>
       <button class="btn btn-ghost btn-tiny" id="stageEdit" type="button">
         <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 20h4l10-10-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
