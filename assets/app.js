@@ -19,6 +19,7 @@
     search: "",
     activeGame: null,
     gameScope: null,
+    replaceId: null,
   };
 
   /* ---------- storage ---------- */
@@ -314,10 +315,20 @@
     return game.url + (game.url.includes("?") ? "&" : "?") + "install=1";
   }
 
+  // Admins can point a card at another game; workers only work on what they were given.
+  function replaceButtonMarkup(game) {
+    if (state.gameScope) return "";
+    return `<button class="game-link-copy game-link-replace" type="button" data-replace="${escapeHtml(game.id)}" aria-label="Replace ${escapeHtml(game.title)} with another game URL" title="Replace game — switch this game to another URL">
+              <svg viewBox="0 0 24 24" aria-hidden="true" style="width:11px;height:11px"><path d="M4 9h11l-3-3m3 3l-3 3M20 15H9l3 3m-3-3l3-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Replace game
+            </button>`;
+  }
+
   function gameLinkMarkup(game) {
     const href = playLink(game);
+    const replaceMarkup = replaceButtonMarkup(game);
     if (!href) {
-      return `<div class="game-links"><span class="game-link is-empty">No playable build yet</span></div>`;
+      return `<div class="game-links"><span class="game-link is-empty">No playable build yet</span>${replaceMarkup}</div>`;
     }
     const safeHref = escapeHtml(href);
     const label = game.build ? `#play=${game.id}` : game.url;
@@ -334,6 +345,7 @@
               <span>${escapeHtml(label)}</span>
             </a>
             ${installMarkup}
+            ${replaceMarkup}
             <button class="game-link-copy" type="button" data-copy="${safeHref}" aria-label="Copy the ${escapeHtml(game.title)} link" title="Copy link">Copy</button>
           </div>`;
   }
@@ -562,6 +574,13 @@
           }
         });
       }
+      const replaceBtn = card.querySelector("[data-replace]");
+      if (replaceBtn) {
+        replaceBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openReplace(replaceBtn.dataset.replace);
+        });
+      }
       card.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -729,6 +748,82 @@
     renderLibrary();
     toast(`${game.title} restored to its original build.`);
     return game;
+  }
+
+  /* ---------- replace a game's URL ---------- */
+  // Accepts a full http(s) link, a bare domain, or a path inside this project.
+  function normalizeGameUrl(raw) {
+    const value = String(raw || "").trim();
+    if (!value) return { error: "Paste the link to the game you want to use." };
+    if (/^(javascript|data|vbscript|file):/i.test(value)) {
+      return { error: "That kind of link can't be used for a game." };
+    }
+    if (/^https?:\/\//i.test(value)) {
+      try {
+        new URL(value);
+        return { url: value };
+      } catch (err) {
+        return { error: "That link looks incomplete — check the address and try again." };
+      }
+    }
+    if (/^\/\//.test(value)) return { url: "https:" + value };
+    if (/^[a-z][a-z0-9+.-]*:/i.test(value)) {
+      return { error: "Use an http(s) link or a path inside this project, like games/asteroids/." };
+    }
+    if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/|\?|$)/i.test(value)) return { url: "https://" + value };
+    return { url: value.replace(/^\.?\//, "") };
+  }
+
+  function openReplace(id) {
+    const game = state.games.find((g) => g.id === id);
+    if (!game || state.gameScope) return;
+    state.replaceId = id;
+    $("#replaceModalTitle").textContent = `Replace “${game.title}”`;
+    $("#replaceLede").textContent =
+      "Switch this game to a different link. Whatever sits at the new URL is what opens from now on.";
+    $("#replaceUrl").value = game.url || "";
+    $("#replaceCurrent").innerHTML = `Current link: <code>${escapeHtml(game.url || "none yet")}</code>`;
+    const err = $("#replaceError");
+    err.hidden = true;
+    err.textContent = "";
+    openModal("replace");
+    requestAnimationFrame(() => $("#replaceUrl").focus({ preventScroll: true }));
+  }
+
+  function handleReplaceSubmit(e) {
+    e.preventDefault();
+    const game = state.games.find((g) => g.id === state.replaceId);
+    const err = $("#replaceError");
+    if (!game) {
+      closeModal("replace");
+      return;
+    }
+    const result = normalizeGameUrl($("#replaceUrl").value);
+    if (result.error) {
+      err.textContent = result.error;
+      err.hidden = false;
+      $("#replaceUrl").focus({ preventScroll: true });
+      return;
+    }
+    if (result.url === game.url) {
+      closeModal("replace");
+      toast("That's already this game's link.");
+      return;
+    }
+    const hadBuild = !!game.build;
+    game.url = result.url;
+    // The old built version would keep winning over the new URL, so it goes.
+    if (hadBuild) {
+      delete game.build;
+      delete game.editedAt;
+    }
+    game.updated = "just now";
+    saveGames();
+    const gameModalOpen = !$("#gameModal").hidden;
+    renderLibrary();
+    closeModal("replace");
+    if (gameModalOpen) openGame(game.id);
+    toast(hadBuild ? `${game.title} now opens ${game.url}. Edited build cleared.` : `${game.title} now opens ${game.url}.`);
   }
 
   /* ---------- modals ---------- */
@@ -910,6 +1005,7 @@
 
     $("#openAddGame").addEventListener("click", openAdd);
     $("#addGameForm").addEventListener("submit", handleAddSubmit);
+    $("#replaceForm").addEventListener("submit", handleReplaceSubmit);
     $("#deleteGameBtn").addEventListener("click", handleDelete);
     $("#editGameBtn").addEventListener("click", () => {
       const game = state.activeGame;

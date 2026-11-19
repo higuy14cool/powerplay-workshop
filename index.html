@@ -434,6 +434,24 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   </div>
 </div>
 
+<div class="modal" id="replaceModal" role="dialog" aria-modal="true" aria-labelledby="replaceModalTitle" hidden>
+  <div class="modal-backdrop" data-close="replace"></div>
+  <div class="modal-card confirm-card">
+    <p class="eyebrow">// replace game</p>
+    <h3 id="replaceModalTitle">Replace game</h3>
+    <p class="confirm-text" id="replaceLede">Switch this game to a different link. Whatever sits at the new URL is what opens from now on.</p>
+    <form id="replaceForm" class="form">
+      <label class="field"><span>Game URL</span><input id="replaceUrl" name="url" type="text" inputmode="url" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="https://example.com/game/ or games/asteroids/"></label>
+      <p class="replace-current" id="replaceCurrent">Current link: <code>—</code></p>
+      <p class="form-error" id="replaceError" hidden></p>
+      <div class="form-actions">
+        <button class="btn btn-ghost" type="button" data-close="replace">Cancel</button>
+        <button class="btn btn-lime" type="submit">Use this URL</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal" id="installModal" role="dialog" aria-modal="true" aria-labelledby="installModalTitle" hidden>
   <div class="modal-backdrop" data-close="install"></div>
   <div class="modal-card install-card">
