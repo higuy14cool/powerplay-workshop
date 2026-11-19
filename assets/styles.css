@@ -80,17 +80,20 @@ img{max-width:100%}
 .brand-type{display:flex;flex-direction:column;line-height:1.05}
 .brand-type strong{font-size:15px;letter-spacing:.14em;font-weight:800}
 .brand-type em{font-style:normal;font-size:10.5px;letter-spacing:.32em;color:var(--muted);text-transform:uppercase}
-.topnav{display:flex;gap:4px;margin-left:auto}
+.topnav{display:flex;gap:2px;margin-left:auto}
+/* one top line: the section links and the action buttons sit together, right of the brand */
+.topbar .btn{padding:9px 13px;font-size:13px}
+.topnav a{padding:7px 11px;font-size:13px}
 .topnav a{
   padding:8px 14px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--muted);
   transition:color .18s,background .18s;
 }
 .topnav a:hover{color:var(--text);background:rgba(255,255,255,.04)}
 .topnav a.is-active{color:var(--text);background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px var(--line)}
-.topbar-right{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;row-gap:8px;gap:14px;margin-left:auto;min-width:0}
+.topbar-right{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;row-gap:8px;gap:8px;margin-left:0;min-width:0}
 .status-pill{
-  display:inline-flex;align-items:center;gap:8px;font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);padding:7px 12px;border:1px solid var(--line);border-radius:999px;
+  display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);padding:6px 10px;border:1px solid var(--line);border-radius:999px;white-space:nowrap;
 }
 .status-pill i{width:6px;height:6px;border-radius:50%;background:var(--lime);box-shadow:0 0 10px var(--lime);animation:pulse 2.4s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
@@ -431,6 +434,10 @@ kbd{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,.08);padd
   .game-modal-card{grid-template-columns:1fr;max-width:520px}
   .game-modal-art{min-height:200px}
   .game-modal-art::after{background:linear-gradient(180deg,transparent 40%,rgba(12,14,23,.92) 100%)}
+}
+@media (max-width:1380px){
+  /* the online pill is decoration: drop it before the bar is allowed to wrap */
+  .status-pill{display:none}
 }
 @media (max-width:1180px){
   /* the signed-in top bar is wide: let it wrap instead of pushing the page sideways */

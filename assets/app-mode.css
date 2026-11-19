@@ -72,14 +72,14 @@ body:not(.is-locked) .login-screen{display:none}
 .modal-card .stack{margin-top:18px}
 .workers-body{
   display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.45fr);gap:26px;
-  padding:16px 26px 24px;min-height:min(62vh,620px);max-height:min(80vh,820px);
+  padding:16px 24px 20px;min-height:min(40vh,380px);
 }
 .workers-col{display:flex;flex-direction:column;gap:12px;min-width:0}
 .workers-col h4{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
 .assign-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px}
 .assign-form select{padding:10px 11px;font-size:13.5px}
 .assign-form .btn{padding:10px 14px}
-.board-list{display:flex;flex-direction:column;gap:9px;overflow:auto;padding-right:4px;flex:1;min-height:220px}
+.board-list{display:flex;flex-direction:column;gap:9px;overflow:auto;padding-right:4px;min-height:150px;max-height:240px}
 .board-row{
   display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
   background:#0a0c14;border:1px solid var(--line);
@@ -106,10 +106,10 @@ body:not(.is-locked) .login-screen{display:none}
 }
 .scope-chip.is-active{background:var(--lime-soft);border-color:rgba(184,255,61,.45);color:var(--lime)}
 .chat-log{
-  flex:1;min-height:340px;max-height:none;overflow:auto;display:flex;flex-direction:column;gap:9px;
+  flex:0 0 auto;height:clamp(140px,19vh,200px);overflow:auto;display:flex;flex-direction:column;gap:8px;
   padding:14px;border-radius:14px;background:#080a11;border:1px solid var(--line);
 }
-.msg{max-width:82%;padding:9px 12px;border-radius:14px;background:#12151f;border:1px solid var(--line);font-size:13.5px;line-height:1.45}
+.msg{max-width:72%;padding:8px 11px;border-radius:14px;background:#12151f;border:1px solid var(--line);font-size:13.5px;line-height:1.45}
 .msg.is-me{align-self:flex-end;background:var(--lime-soft);border-color:rgba(184,255,61,.35)}
 .msg small{display:block;margin-bottom:3px;font-size:11px;color:var(--muted-2)}
 .chat-form{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
@@ -162,7 +162,7 @@ body:not(.is-locked) .login-screen{display:none}
 @media (max-width:860px){
   .wide-card{width:calc(100vw - 20px)}
   .workers-body{grid-template-columns:1fr;min-height:0;max-height:82vh;overflow:auto;padding:16px 18px 22px}
-  .chat-log{min-height:300px;max-height:52vh}
+  .chat-log{height:clamp(140px,24vh,210px)}
   #chatThread .msg-actions{opacity:1}
   /* on a phone the field gets its own row above the buttons */
   #chatThread .msg-edit{grid-template-columns:1fr 1fr}
@@ -182,7 +182,7 @@ body:not(.is-locked) .login-screen{display:none}
 #chatThread .msg:has(.msg-edit){width:340px}
 #chatThread .msg-text{white-space:pre-wrap;word-break:break-word}
 #chatThread .msg-pic{display:block;margin-top:6px;border-radius:10px;overflow:hidden;line-height:0}
-#chatThread .msg-pic img{display:block;width:100%;height:auto;max-height:260px;border-radius:10px;object-fit:cover}
+#chatThread .msg-pic img{display:block;width:100%;height:auto;max-height:160px;border-radius:10px;object-fit:cover}
 #chatThread .msg-fwd{display:block;font-size:11px;color:var(--lime);opacity:.85;margin-bottom:3px}
 #chatThread .msg-edited{display:block;margin-top:3px;font-size:10.5px;color:var(--muted-2)}
 #chatThread .msg-actions{display:flex;gap:6px;margin-top:6px;opacity:0;transition:opacity .15s}
