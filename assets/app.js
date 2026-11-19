@@ -847,7 +847,21 @@
 
     $("#year").textContent = new Date().getFullYear();
 
-    $("#searchGames").addEventListener("input", (e) => {
+    // The browser's password manager likes to drop the saved login name into any stray
+    // text box on the page. The search box starts read-only so it cannot be pre-filled,
+    // any value that still lands there is cleared, and it unlocks on first touch.
+    const search = $("#searchGames");
+    const clearStraySearch = () => {
+      if (!state.search && search.value) search.value = "";
+    };
+    const armSearch = () => {
+      search.removeAttribute("readonly");
+      clearStraySearch();
+    };
+    ["pointerdown", "focus", "keydown"].forEach((ev) => search.addEventListener(ev, armSearch));
+    [250, 900, 2000].forEach((ms) => setTimeout(clearStraySearch, ms));
+
+    search.addEventListener("input", (e) => {
       state.search = e.target.value;
       renderLibrary();
     });
