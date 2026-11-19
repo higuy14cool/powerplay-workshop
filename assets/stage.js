@@ -1,10 +1,132 @@
 /* POWERPLAY Workshop — the game stage: play a game in place, then edit it by hand. */
 (function () {
   const KEY = "powerplay.playedits.v1";
-  const FORMATS = ["Futsal", "Classic match", "Classic match tournament", "2v2 match tournament"];
+
+  /* Each game has its own vocabulary: the pieces you add should read like the
+     game's own teams, modes and match types, and wear its colours. */
+  const GENERIC = {
+    tool: { selection: "Add selection", mode: "Add mode", game: "Add game", box: "Add box" },
+    label: { selection: "Selection", mode: "Mode", game: "Game", box: "Box" },
+    options: [{ name: "Option A" }, { name: "Option B" }, { name: "Option C" }],
+    modes: ["Mode"],
+    formats: ["Mode 1", "Mode 2", "Mode 3"],
+    box: "Say something here",
+  };
+
+  const THEMES = {
+    prokick: {
+      tool: { selection: "Add team", mode: "Add rule", game: "Add match", box: "Add note" },
+      label: { selection: "Teams", mode: "Match rules", game: "Match", box: "Note" },
+      options: [
+        { name: "FC Chicken Wings", color: "#ff941f" },
+        { name: "Dragonwolves FC", color: "#2878ff" },
+        { name: "Bears FC", color: "#8b4a2b" },
+        { name: "Argens", color: "#e5e7eb" },
+        { name: "Apex United", color: "#ef4444" },
+        { name: "Ironclad FC", color: "#94a3b8" },
+        { name: "Vanguard Strikers", color: "#7dd3fc" },
+        { name: "Crimson Athletic", color: "#3a3a3a" },
+        { name: "Velocity Rovers", color: "#8b5cf6" },
+        { name: "Titan Sporting", color: "#a855f7" },
+        { name: "Real Sovereign", color: "#16a34a" },
+        { name: "Phantom XI", color: "#800000" },
+        { name: "Cookers FC", color: "#d62839" },
+      ],
+      modes: ["Futsal rules", "Golden goal", "Extra time", "Offside on", "Penalty shootout"],
+      formats: ["Futsal", "Classic match", "Classic match tournament", "2v2 match tournament"],
+      box: "Match note",
+    },
+    "dunkin-hoops": {
+      tool: { selection: "Add team", mode: "Add rule", game: "Add match", box: "Add note" },
+      label: { selection: "Teams", mode: "Court rules", game: "Match", box: "Note" },
+      options: [
+        { name: "Predators", color: "#f47721" },
+        { name: "Tigers", color: "#efb52c" },
+        { name: "Raptors", color: "#d7263d" },
+        { name: "Bulls", color: "#ce1141" },
+        { name: "Sixers", color: "#2879e8" },
+        { name: "Warriors", color: "#1d428a" },
+        { name: "Lakers", color: "#fdb927" },
+        { name: "Celtics", color: "#007a33" },
+      ],
+      modes: ["Shot clock 24s", "Three-point contest", "Sudden death", "Streetball rules"],
+      formats: ["1v1", "3v3", "5v5", "Three-point contest", "Tournament"],
+      box: "Court note",
+    },
+    "hockey-showdown": {
+      tool: { selection: "Add team", mode: "Add rule", game: "Add match", box: "Add note" },
+      label: { selection: "Teams", mode: "Ice rules", game: "Match", box: "Note" },
+      options: [
+        { name: "Ice Wolves", color: "#2679bd" },
+        { name: "Frostbite", color: "#76d9ef" },
+        { name: "Detroit Icehawks", color: "#d6424b" },
+        { name: "Arctic Predators", color: "#8a65bd" },
+      ],
+      modes: ["3 minute periods", "Sudden-death overtime", "Penalty shots", "No icing"],
+      formats: ["Quick match", "1v1", "3v3", "Shootout", "Tournament"],
+      box: "Ice note",
+    },
+    touchdown: {
+      tool: { selection: "Add team", mode: "Add rule", game: "Add match", box: "Add note" },
+      label: { selection: "Teams", mode: "Game rules", game: "Match", box: "Note" },
+      options: [
+        { name: "Dallas Cowboys", color: "#003594" },
+        { name: "Arizona Cardinals", color: "#97233f" },
+        { name: "Atlanta Falcons", color: "#a71930" },
+        { name: "Baltimore Ravens", color: "#241773" },
+        { name: "Buffalo Bills", color: "#00338d" },
+        { name: "Chicago Bears", color: "#0b162a" },
+        { name: "Green Bay Packers", color: "#203731" },
+        { name: "Kansas City Chiefs", color: "#e31837" },
+      ],
+      modes: ["Franchise season", "Quick match", "Two-minute drill", "Playoffs"],
+      formats: ["Quick match", "Franchise game", "Division round", "Conference championship"],
+      box: "Play call note",
+    },
+    ballistic: {
+      tool: { selection: "Add team", mode: "Add rule", game: "Add match", box: "Add note" },
+      label: { selection: "Teams", mode: "Rules", game: "Match", box: "Note" },
+      options: [
+        { name: "All-Star", color: "#ffd23f" },
+        { name: "Pro", color: "#e63946" },
+        { name: "Rookie", color: "#4ade80" },
+        { name: "Brute", color: "#a855f7" },
+        { name: "Sniper", color: "#38bdf8" },
+      ],
+      modes: ["Classic", "Blitz", "Ironman"],
+      formats: ["Classic", "Blitz", "Ironman", "3v3 elimination"],
+      box: "Court note",
+    },
+    quiz: {
+      tool: { selection: "Add answer", mode: "Add setting", game: "Add round", box: "Add question" },
+      label: { selection: "Answers", mode: "Settings", game: "Round", box: "Question" },
+      options: [{ name: "Answer A" }, { name: "Answer B" }, { name: "Answer C" }, { name: "Answer D" }],
+      modes: ["Timer on", "Show hints", "Hard mode"],
+      formats: ["Quick quiz", "Timed quiz", "Tournament", "Practice"],
+      box: "Type the question here",
+    },
+  };
+
+  const ALIASES = { hockey: "hockey-showdown", dunkin: "dunkin-hoops" };
+
+  function themeFor(g) {
+    if (!g) return GENERIC;
+    const id = String(g.id || "").toLowerCase();
+    if (THEMES[id]) return THEMES[id];
+    if (ALIASES[id] && THEMES[ALIASES[id]]) return THEMES[ALIASES[id]];
+    const text = `${g.title || ""} ${g.pitch || ""} ${g.genre || ""}`.toLowerCase();
+    if (/basket|hoops|dunk/.test(text)) return THEMES["dunkin-hoops"];
+    if (/hockey|puck|ice rink/.test(text)) return THEMES["hockey-showdown"];
+    if (/dodgeball|ballistic/.test(text)) return THEMES.ballistic;
+    if (/nfl|touchdown|franchise/.test(text)) return THEMES.touchdown;
+    if (/football|soccer|kick|futsal|pitch/.test(text)) return THEMES.prokick;
+    if (/quiz|trivia|question/.test(text)) return THEMES.quiz;
+    return GENERIC;
+  }
 
   const $ = (sel) => document.querySelector(sel);
   let stage, frame, layer, tools, tip, chooser, titleEl, statusEl, openTab, fullBtn;
+  let theme = GENERIC;
   let game = null;
   let parts = [];
   let editing = false;
@@ -43,35 +165,55 @@
       kind,
       x: Math.max(8, Math.min(92, x)),
       y: Math.max(8, Math.min(92, y)),
-      label: label || "",
+      label: label || theme.label[kind] || "",
     };
-    if (kind === "selection") part.options = ["Team A", "Team B"];
-    if (kind === "mode") part.on = true;
-    if (kind === "box") part.body = "Say something here";
+    if (kind === "selection") {
+      const first = theme.options.slice(0, 2);
+      part.options = first.map((o) => o.name);
+      part.colors = first.map((o) => o.color || "");
+    }
+    if (kind === "mode") {
+      part.on = true;
+      const used = new Set((parts || []).filter((p) => p.kind === "mode").map((p) => p.label));
+      const next = theme.modes.find((m) => !used.has(m));
+      part.label = next || theme.label.mode;
+    }
+    if (kind === "box") part.body = theme.box;
     return part;
   }
 
-  const TAGS = { selection: "Selection", mode: "Mode", game: "Game", box: "Box" };
+  const tags = () => ({ selection: theme.label.selection, mode: theme.label.mode, game: theme.label.game, box: theme.label.box });
 
-  function inner(part) {
-    const tag = `<span class="part-tag" title="Drag to move">⠿ ${TAGS[part.kind]}</span>`;
+  function nextOption(part) {
+    const used = new Set(part.options || []);
+    const next = theme.options.find((o) => !used.has(o.name));
+    if (next) return next;
+    return { name: theme === GENERIC ? `Option ${used.size + 1}` : `Team ${used.size + 1}` };
+  }
+
+  function renderOption(text, index, active, color) {
+    const style = color ? ` style="--opt-color:${color}"` : "";
+    const dot = color ? `<i class="part-dot"></i>` : "";
+    return `<button class="part-opt" type="button" data-opt="${index}" aria-pressed="${active}"${style}>${dot}${esc(text)}</button>`;
+  }
+
+  function renderPart(part) {
+    const tag = `<span class="part-tag" title="Drag to move">⠿ ${esc(tags()[part.kind])}</span>`;
+    const label = `<strong class="part-title" contenteditable="false" spellcheck="false">${esc(part.label)}</strong>`;
     if (part.kind === "selection") {
-      const opts = (part.options || []).map(
-        (o, i) => `<button class="part-opt" type="button" data-opt="${i}" aria-pressed="${part.picked === i}">${esc(o)}</button>`
-      );
-      return `${tag}<strong class="part-title" contenteditable="false" spellcheck="false">${esc(part.label)}</strong>
-        <div class="part-opts">${opts}<button class="part-opt part-add" type="button" data-addopt="1" title="Another option">+</button></div>`;
+      const list = (part.options || [])
+        .map((o, i) => renderOption(o, i, part.picked === i, (part.colors || [])[i]))
+        .join("");
+      return `${tag}${label}<div class="part-opts">${list}<button class="part-opt part-add" type="button" data-addopt="1" title="Another option">+</button></div>`;
     }
     if (part.kind === "mode") {
-      return `${tag}<strong class="part-title" contenteditable="false" spellcheck="false">${esc(part.label)}</strong>
-        <button class="part-toggle" type="button" aria-pressed="${part.on !== false}">${part.on === false ? "Off" : "On"}</button>`;
+      const on = part.on !== false;
+      return `${tag}${label}<button class="part-toggle" type="button" aria-pressed="${on}">${on ? "On" : "Off"}</button>`;
     }
     if (part.kind === "game") {
-      return `${tag}<strong class="part-title" contenteditable="false" spellcheck="false">${esc(part.label)}</strong>
-        <span class="part-state">${part.picked ? "Chosen" : "Tap to choose"}</span>`;
+      return `${tag}${label}<span class="part-state">${part.picked ? "Chosen" : "Tap to choose"}</span>`;
     }
-    return `${tag}<strong class="part-title" contenteditable="false" spellcheck="false">${esc(part.label)}</strong>
-      <p class="part-body" contenteditable="false" spellcheck="false">${esc(part.body)}</p>`;
+    return `${tag}${label}<p class="part-body" contenteditable="false" spellcheck="false">${esc(part.body)}</p>`;
   }
 
   function draw() {
@@ -83,7 +225,7 @@
       el.dataset.id = part.id;
       el.style.left = part.x + "%";
       el.style.top = part.y + "%";
-      el.innerHTML = `<button class="part-del" type="button" data-del="1" aria-label="Remove this piece" title="Remove">×</button>${inner(part)}`;
+      el.innerHTML = `<button class="part-del" type="button" data-del="1" aria-label="Remove this piece" title="Remove">×</button>${renderPart(part)}`;
       layer.appendChild(el);
     });
     layer.classList.toggle("is-empty", parts.length === 0);
@@ -184,11 +326,35 @@
     toast("Edit mode: add a piece, then tap where it goes.");
   }
 
-  function place(kind, label, x, y) {
+  function place(kind, x, y, label) {
     parts.push(newPart(kind, x, y, label));
     store();
     draw();
     applyEditable();
+  }
+
+  /* the toolbar and the match picker speak the game's language */
+  function paintTheme() {
+    tools.querySelectorAll(".edit-tool[data-tool]").forEach((btn) => {
+      const k = btn.dataset.tool;
+      if (theme.tool[k]) btn.textContent = theme.tool[k];
+    });
+    const list = chooser && chooser.querySelector(".format-list");
+    if (list) {
+      list.innerHTML = theme.formats
+        .map((f) => `<button class="format-opt" type="button" data-format="${esc(f)}">${esc(f)}</button>`)
+        .join("");
+      list.querySelectorAll("[data-format]").forEach((btn) =>
+        btn.addEventListener("click", () => addGamePart(btn.dataset.format))
+      );
+    }
+    const colors = (game && game.cover && game.cover.colors) || [];
+    if (stage && colors[0]) stage.style.setProperty("--pp-accent", colors[0]);
+    if (stage && colors[1]) stage.style.setProperty("--pp-accent-2", colors[1]);
+    const head = chooser && chooser.querySelector("#formatTitle");
+    if (head) head.textContent = theme === GENERIC ? "Which game?" : `Which ${theme.label.game.toLowerCase()}?`;
+    const sub = chooser && chooser.querySelector(".format-card .muted");
+    if (sub) sub.textContent = theme === GENERIC ? "Pick the match you want on this stage." : `${game ? game.title : "This game"} — pick what goes on the stage.`;
   }
 
   function openModal() {
@@ -209,6 +375,8 @@
   function open(nextGame) {
     if (!stage || !nextGame) return;
     game = nextGame;
+    theme = themeFor(game);
+    paintTheme();
     parts = load(game.id);
     editing = false;
     tool = "";
@@ -249,7 +417,8 @@
       tip.hidden = true;
     } else {
       tip.hidden = false;
-      tip.textContent = `Tap where the ${kind} should go.`;
+      const what = { selection: theme.label.selection.toLowerCase(), mode: "rule", box: "note" }[kind] || kind;
+      tip.textContent = `Tap where the ${what} should go.`;
     }
   }
 
@@ -271,10 +440,10 @@
     const rect = layer.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    if (tool === "selection") place("selection", "Selection", x, y);
-    else if (tool === "mode") place("mode", "Mode", x, y);
-    else if (tool === "box") place("box", "Box", x, y);
-    else if (tool === "game") place("game", pendingFormat || FORMATS[0], x, y);
+    if (tool === "selection") place("selection", x, y);
+    else if (tool === "mode") place("mode", x, y);
+    else if (tool === "box") place("box", x, y);
+    else if (tool === "game") place("game", x, y, pendingFormat || theme.formats[0]);
     pendingFormat = "";
     tool = "";
     tools.querySelectorAll(".edit-tool[data-tool]").forEach((btn) => btn.classList.remove("is-active"));
@@ -295,16 +464,20 @@
       toast("Piece removed.");
       return;
     }
+    // another option is an edit, so it works in both modes
+    if (part.kind === "selection" && e.target.closest("[data-addopt]")) {
+      const next = nextOption(part);
+      part.options.push(next.name);
+      part.colors = (part.colors || []).slice(0, part.options.length - 1).concat(next.color || "");
+      store();
+      draw();
+      applyEditable();
+      return;
+    }
     if (editing) return;
 
     if (part.kind === "selection" && e.target.closest("[data-opt]")) {
       part.picked = Number(e.target.closest("[data-opt]").dataset.opt);
-      store();
-      draw();
-      return;
-    }
-    if (part.kind === "selection" && e.target.closest("[data-addopt]")) {
-      part.options.push(`Option ${part.options.length + 1}`);
       store();
       draw();
       return;
@@ -328,7 +501,7 @@
     const el = node.closest(".pp-part");
     const part = el && partById(el.dataset.id);
     if (!part) return;
-    if (node.classList.contains("part-title")) part.label = node.textContent.trim().slice(0, 60) || TAGS[part.kind];
+    if (node.classList.contains("part-title")) part.label = node.textContent.trim().slice(0, 60) || tags()[part.kind];
     else part.body = node.textContent.trim().slice(0, 200);
     store();
   }
@@ -395,9 +568,7 @@
     window.addEventListener("pointerup", onPointerUp);
     if (chooser) {
       chooser.querySelectorAll("[data-format]").forEach((btn) => btn.addEventListener("click", () => addGamePart(btn.dataset.format)));
-      const closer = chooser.querySelector("[data-close-format]");
-      if (closer) closer.addEventListener("click", closeModal);
-      chooser.querySelector(".modal-backdrop")?.addEventListener("click", closeModal);
+      chooser.querySelectorAll("[data-close-format]").forEach((el) => el.addEventListener("click", closeModal));
     }
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape" || !stage || stage.hidden) return;
@@ -413,5 +584,5 @@
     return load(gameId).length;
   }
 
-  window.PowerplayStage = { open, close, bind, partCount, FORMATS, KEY };
+  window.PowerplayStage = { open, close, bind, partCount, KEY, get FORMATS() { return theme.formats.slice(); }, themeFor };
 })();
