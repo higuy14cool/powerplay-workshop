@@ -1,5 +1,5 @@
 /* Offline cache for Hockey Showdown — keeps the game running after it is installed. */
-const CACHE = 'hockey-v1';
+const CACHE = 'hockey-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

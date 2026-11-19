@@ -1,5 +1,5 @@
 /* Offline cache for BALLISTIC! — keeps the game running after it is installed. */
-const CACHE = 'ballistic-v1';
+const CACHE = 'ballistic-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

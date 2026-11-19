@@ -457,28 +457,49 @@
     async function runPrompt() {
       const ev = window.__ppInstall;
       if (!ev) return false;
-      window.__ppInstall = null;
       try {
         ev.prompt();
+        window.__ppInstall = null;
         const choice = await ev.userChoice;
         closeModal("install");
         show(false);
         toast(choice && choice.outcome === "accepted" ? "Installing POWERPLAY…" : "Install cancelled — press Install app to try again.");
       } catch (err) {
-        // A prompt can only be used once: fall back to the written steps.
+        // A prompt can only be used once: keep it for the sheet's own tap.
+        window.__ppInstall = ev;
         openSheet();
       }
       return true;
     }
 
-    buttons.forEach((b) =>
-      b.addEventListener("click", () => {
-        if (hasPrompt()) runPrompt();
-        else openSheet();
-      })
-    );
+    // Pressing Install app goes straight to the browser's install dialog. A prompt
+    // can land just after the press, so wait a beat for it before showing the steps.
+    let waiting = false;
+    function pressInstall() {
+      if (hasPrompt()) {
+        runPrompt();
+        return;
+      }
+      if (waiting) return;
+      waiting = true;
+      const started = Date.now();
+      const tick = () => {
+        if (hasPrompt()) {
+          waiting = false;
+          runPrompt();
+        } else if (Date.now() - started > 1200) {
+          waiting = false;
+          openSheet();
+        } else {
+          setTimeout(tick, 100);
+        }
+      };
+      setTimeout(tick, 100);
+    }
+
+    buttons.forEach((b) => b.addEventListener("click", pressInstall));
     const now = $("#installNow");
-    if (now) now.addEventListener("click", () => (hasPrompt() ? runPrompt() : openSheet()));
+    if (now) now.addEventListener("click", pressInstall);
   }
 
   function renderLibrary() {

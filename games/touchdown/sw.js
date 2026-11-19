@@ -1,5 +1,5 @@
 /* Offline cache for Touchdown — keeps the game running after it is installed. */
-const CACHE = 'touchdown-v1';
+const CACHE = 'touchdown-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

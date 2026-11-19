@@ -1,5 +1,5 @@
 /* Offline cache for ProKick — keeps the game running after it is installed. */
-const CACHE = 'prokick-v49';
+const CACHE = 'prokick-v50';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

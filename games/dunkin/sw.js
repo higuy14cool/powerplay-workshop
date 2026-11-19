@@ -1,5 +1,5 @@
 /* Offline cache for Dunkin' Hoops — keeps the game running after it is installed. */
-const CACHE = 'dunkin-v1';
+const CACHE = 'dunkin-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {

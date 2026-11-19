@@ -7,11 +7,12 @@
   const standalone =
     (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
     window.navigator.standalone === true;
-  const wantsInstall = new URLSearchParams(location.search).has("install");
+  let wantsInstall = new URLSearchParams(location.search).has("install");
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const title = (document.title || "This game").split(/[—|]/)[0].trim();
 
   let prompt = null;
+  let autoTimer = null;
   let host = null;
   let button = null;
   let sheet = null;
@@ -169,29 +170,42 @@
   }
 
   async function install() {
+    clearTimeout(autoTimer);
     if (!prompt) {
       showSheet();
       return;
     }
     const evt = prompt;
-    prompt = null;
     try {
+      // Straight to the browser's own install dialog: no card in between.
       evt.prompt();
+      prompt = null;
       const choice = await evt.userChoice;
       if (choice && choice.outcome === "accepted") {
         closeSheet();
         if (button) button.textContent = "✓ Installed";
       }
     } catch (e) {
+      // A prompt the browser refuses to open can still be used from a tap.
+      prompt = evt;
       showSheet();
     }
+  }
+
+  /* A play link that asks to install prompts at once; the written steps only
+     appear if this browser never offers its prompt. */
+  function autoInstall() {
+    if (!wantsInstall) return;
+    wantsInstall = false;
+    clearTimeout(autoTimer);
+    install();
   }
 
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     prompt = e;
     build();
-    if (wantsInstall) showSheet();
+    autoInstall();
   });
 
   window.addEventListener("appinstalled", () => {
@@ -207,8 +221,11 @@
       button.style.background = "#b8ff3d";
       button.style.color = "#0a0b10";
       button.style.border = "1px solid #b8ff3d";
-      // A play-link install lands here: offer it right away instead of making them hunt.
-      showSheet();
+      // A play-link install lands here: wait for the browser's prompt and use it,
+      // and fall back to the written steps only when no prompt ever arrives.
+      autoTimer = setTimeout(() => {
+        if (!prompt && wantsInstall) showSheet();
+      }, 1800);
     }
   }
 
