@@ -23,8 +23,14 @@ Static site, no build step: `index.html` (website), `app.html` (generated from i
 `pp_ai_verify.py` (mocked model), `pp_ai_real.py`, `pp_ai_edit.py`,
 `pp_ai_mobile.py`, `pp_chats_verify.py`, `pp_app_verify.py`,
 `pp_worker_ai_verify.py`, `pp_restore_verify.py`, `pp_games_verify.py`,
-`pp_install*_verify.py`. Suites that need deterministic offline output set
-`powerplay.ai.v1` to an empty `custom` provider through `add_init_script`.
+`pp_install*_verify.py`. The Architect always runs on the free hosted AI (no key), so an empty custom
+provider now heals to free and reaches the network. A suite that needs deterministic
+output stubs `**/text.pollinations.ai/**` with `ctx.route(...)` and returns a
+`{"choices":[{"message":{"content":...}}]}` body.
 
 Preview: `nohup python3 /tmp/ppserve.py "$PWD" 4173` then http://127.0.0.1:4173/index.html
 (admin `higuy14/cool` / `favgame1`).
+
+Always-free AI: `assets/ai.js` keeps the free host as the engine whenever a saved
+choice cannot run (`settings()` heals, `ask()` retries a refused key on it), and no
+UI copy asks for a key or payment — a key is an optional upgrade only.

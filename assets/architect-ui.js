@@ -1453,8 +1453,8 @@ render();
     hideTyping();
     addMessage(
       "ai",
-      `The AI can't answer right now, so **${label}** is untouched — nothing was replaced and no new game was made.\n\n` +
-        "Try again in a minute; if it keeps happening, add your own key under **AI settings** (the chip at the top of this panel). " +
+      `The free AI is busy right now, so **${label}** is untouched — nothing was replaced and no new game was made.\n\n` +
+        "Ask again in a minute and it will be free again. " +
         `You can also write the change straight into the Code tab and press **Save to ${label}**.`
     );
     busy = false;
@@ -1778,7 +1778,7 @@ render();
           "ai",
           `**${plan.name}** is built.\n\n` + (plan.summary ? plan.summary + "\n\n" : "") +
             `Made by ${engine}. ` + saveNote +
-            (cut ? "\n\n⚠ The answer hit this AI's length limit and is the compact version. Add your own key in AI settings for full-size files." : "")
+            (cut ? "\n\n⚠ The answer hit the free AI's length limit, so this is the compact version. Ask for one file at a time for the full-size build." : "")
         );
         if (window.PowerplayApp) window.PowerplayApp.toast(cut ? "Built a compact version — see the Code tab." : "Built it — check the Code tab.", "ok");
       } else if (editingGame && junk) {
@@ -1802,7 +1802,7 @@ render();
       if (editingGame) { answerWithoutAI(); return; }
       addMessage(
         "ai",
-        `**The AI could not answer.** ${err && err.message ? err.message : "Unknown error."}\n\nI'm falling back to the offline builder so you still get something — and the AI settings (the chip at the top of this panel) let you switch engines.`
+        `**The free AI could not answer this time.** ${err && err.message ? err.message : "Unknown error."}\n\nI'm falling back to the offline builder so you still get something.`
       );
       respondOffline(trimmed);
     }
@@ -2033,7 +2033,7 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     $("#pyFilename").textContent = slug + ".py";
     pythonOutput.textContent = py || (window.PowerplayAI && window.PowerplayAI.ready()
       ? "No Python version yet. Press “Write the Python version” and the AI writes one that behaves the same — one file, standard library only."
-      : "The Python version is written by the AI. Set it up with the chip at the top of this panel, then press “Write the Python version”.");
+      : "The Python version is written by the free AI. Press “Write the Python version” again in a moment.");
     $("#makePython").hidden = !!py;
     $("#copyPython").hidden = !py;
     $("#downloadPython").hidden = !py;
@@ -2077,7 +2077,7 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
   $("#makePython").addEventListener("click", async () => {
     if (!current || !current.code) return;
     if (!(window.PowerplayAI && window.PowerplayAI.ready())) {
-      if (window.PowerplayApp) window.PowerplayApp.toast("Set up the AI first — the chip at the top.", "err");
+      if (window.PowerplayApp) window.PowerplayApp.toast("The free AI is busy — try again in a moment.", "err");
       return;
     }
     const btn = $("#makePython");
@@ -2208,11 +2208,9 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     const el = $("#aiEngineLabel");
     const AI = window.PowerplayAI;
     if (!el || !AI) return;
-    el.textContent = AI.ready() ? "Real AI · " + AI.label() : "AI not set up";
+    el.textContent = "Real AI · " + (AI.ready() ? AI.label() : "free hosted AI");
     const chip = $("#aiEngine");
-    if (chip) chip.title = AI.ready()
-      ? "Built by " + AI.label() + " — click to change it"
-      : "Click to choose which AI builds for you";
+    if (chip) chip.title = "Built by " + (AI.ready() ? AI.label() : "free hosted AI") + " — free, no key needed. Click to change it.";
   }
 
   function fillAiForm() {
@@ -2225,8 +2223,8 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     $("#aiBase").value = s.provider === "free" ? "" : s.baseUrl;
     syncAiRows();
     $("#aiState").textContent = AI.ready()
-      ? "In use now: " + AI.label() + ". Your key never leaves this browser."
-      : "No AI is set up. Pick one above.";
+      ? "In use now: " + AI.label() + ". The free AI needs no key; a key of your own is optional and never leaves this browser."
+      : "The free AI is already on. A key of your own is optional.";
   }
 
   // The free engine needs no key; the others need a key and, for "custom", an address.
@@ -2269,7 +2267,7 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
       paintEngine();
       $("#aiState").textContent = window.PowerplayAI.ready()
         ? "Saved. " + window.PowerplayAI.label() + " builds from now on."
-        : "Saved, but that needs a key before it can build.";
+        : "Saved. Without a working key it stays on the free AI, so building never stops.";
       if (window.PowerplayApp) window.PowerplayApp.toast("AI settings saved.");
     });
     $("#aiTest").addEventListener("click", async () => {
