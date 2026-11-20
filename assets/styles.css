@@ -866,3 +866,25 @@ body.pp-fs{overflow:hidden}
 .save-chip[data-state="ok"]{color:#b8ff3d;border-color:rgba(184,255,61,.38)}
 .save-chip[data-state="remote"]{color:#9ec8ff;border-color:rgba(158,200,255,.4)}
 @media (max-width:520px){.save-chip{right:10px;bottom:10px;font-size:9.5px;padding:6px 10px}}
+
+/* ---------- pages: a game can hold several, and edits stay where they were made ---------- */
+.stage-pages{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--line);background:#080a11;flex:0 0 auto;flex-wrap:wrap}
+.stage-pages[hidden]{display:none}
+.pages-label{font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.page-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.page-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:5px 11px;font:inherit;font-size:11.5px;cursor:pointer}
+.page-chip[aria-pressed="true"]{color:#0a0c0a;background:var(--pp-accent,var(--lime));border-color:transparent;font-weight:700}
+.page-name{outline:none;border-radius:5px}
+.page-name[contenteditable="true"]{box-shadow:0 0 0 1px rgba(0,0,0,.35);padding:0 2px;cursor:text}
+.page-del{border:0;background:transparent;color:inherit;font-size:13px;line-height:1;padding:0 0 0 2px;cursor:pointer;opacity:.7}
+.page-del:hover{opacity:1}
+.stage-page-hint{font-size:11px;color:var(--muted)}
+
+/* the assistant's question, asked right where the piece landed */
+.stage-ask{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:40;width:min(460px,calc(100vw - 28px));padding:12px 14px;border-radius:16px;background:rgba(9,12,18,.96);border:1px solid color-mix(in srgb,var(--pp-accent,var(--lime)) 45%,var(--line));box-shadow:0 18px 40px rgba(0,0,0,.55);backdrop-filter:blur(10px)}
+.stage-ask[hidden]{display:none}
+.ask-head{display:flex;align-items:center;gap:7px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--pp-accent,var(--lime))}
+.ask-dot{width:7px;height:7px;border-radius:50%;background:var(--pp-accent,var(--lime));box-shadow:0 0 10px var(--pp-accent,var(--lime))}
+.ask-text{margin:7px 0 10px;font-size:13px;line-height:1.5;color:var(--ink)}
+.ask-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:520px){.stage-ask{bottom:10px;padding:11px 12px}.ask-text{font-size:12.5px}}

@@ -56,7 +56,7 @@
         } else if (k.indexOf("powerplay.accounts") === 0) {
           if (window.PowerplayAppMode && window.PowerplayAppMode.refreshLive) window.PowerplayAppMode.refreshLive();
           else if (window.PowerplayAccounts && window.PowerplayAccounts.reload) window.PowerplayAccounts.reload();
-        } else if (k === "powerplay.playedits.v1") {
+        } else if (k.indexOf("powerplay.playedits") === 0) {
           if (window.PowerplayStage && window.PowerplayStage.refresh) window.PowerplayStage.refresh();
         } else if (k === "powerplay.architect.chats.v1") {
           if (window.PowerplayChats && window.PowerplayChats.render) window.PowerplayChats.render();

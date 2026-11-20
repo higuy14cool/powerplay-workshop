@@ -644,6 +644,11 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
       </button>
     </div>
   </div>
+  <div class="stage-pages" id="stagePages" hidden>
+    <span class="pages-label">Pages</span>
+    <div class="page-chips" id="pageChips"></div>
+    <button class="btn btn-ghost btn-tiny" id="addPageBtn" type="button">+ New page</button>
+  </div>
   <div class="stage-body" id="stageBody">
     <iframe id="playFrame" title="The game" allow="autoplay; fullscreen; gamepad; clipboard-write"></iframe>
     <div class="edit-layer" id="editLayer" aria-label="Added pieces"></div>
@@ -655,6 +660,14 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
       <button class="edit-tool edit-done" id="editDone" type="button">Done</button>
     </div>
     <p class="edit-tip" id="editTip" hidden>Tap where it should go.</p>
+  </div>
+  <div class="stage-ask" id="stageAsk" hidden>
+    <div class="ask-head"><span class="ask-dot"></span> Architect AI</div>
+    <p class="ask-text" id="askText"></p>
+    <div class="ask-actions">
+      <button class="btn btn-lime btn-tiny" id="askYes" type="button">Yes, new page</button>
+      <button class="btn btn-ghost btn-tiny" id="askNo" type="button">No, keep it here</button>
+    </div>
   </div>
 </div>
 

@@ -1,6 +1,7 @@
 /* POWERPLAY Workshop — the game stage: play a game in place, then edit it by hand. */
 (function () {
-  const KEY = "powerplay.playedits.v1";
+  const KEY = "powerplay.playedits.v2";
+  const OLD_KEY = "powerplay.playedits.v1";
 
   /* Each game has its own vocabulary: the pieces you add should read like the
      game's own teams, modes and match types, and wear its colours. */
@@ -362,11 +363,13 @@
   let tool = "";        // which piece the next tap places
   let dragging = null;  // { el, part, rect }
   let emojiTarget = null; // { id, index } while an emoji palette is open
+  let book = null;       // { active, pages:[{id,name,parts}] } for the open game
+  let askPart = "";      // the mode that the new-page question is about
 
   const esc = (v) =>
     String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  /* ---------- storage ---------- */
+  /* ---------- storage: a book of pages for every game ---------- */
   function readAll() {
     try {
       const raw = JSON.parse(localStorage.getItem(KEY) || "{}");
@@ -376,16 +379,159 @@
     }
   }
 
+  const newId = (prefix) => `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+
+  /* Edits stay on the page they were made on: every game keeps its own pages,
+     each holding its own pieces, plus which page is open. */
+  function pagesOf(gameId) {
+    const all = readAll();
+    let found = all[gameId];
+    if (!found || !Array.isArray(found.pages) || !found.pages.length) {
+      let legacy = [];
+      try {
+        const old = JSON.parse(localStorage.getItem(OLD_KEY) || "{}");
+        if (old && Array.isArray(old[gameId])) legacy = old[gameId];
+      } catch (err) {
+        legacy = [];
+      }
+      const first = { id: newId("page"), name: "Main", parts: legacy };
+      found = { active: first.id, pages: [first] };
+      all[gameId] = found;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(all));
+      } catch (err) {}
+    }
+    if (!found.pages.some((p) => p.id === found.active)) found.active = found.pages[0].id;
+    return found;
+  }
+
+  function pageIn(b) {
+    if (!b) return null;
+    return b.pages.find((p) => p.id === b.active) || b.pages[0] || null;
+  }
+
   function load(gameId) {
-    const list = readAll()[gameId];
-    return Array.isArray(list) ? list : [];
+    const page = pageIn(pagesOf(gameId));
+    return page && Array.isArray(page.parts) ? page.parts : [];
+  }
+
+  function saveBook() {
+    if (!game || !book) return;
+    const all = readAll();
+    all[game.id] = book;
+    localStorage.setItem(KEY, JSON.stringify(all));
   }
 
   function store() {
     if (!game) return;
-    const all = readAll();
-    all[game.id] = parts;
-    localStorage.setItem(KEY, JSON.stringify(all));
+    if (!book) book = pagesOf(game.id);
+    const page = pageIn(book);
+    if (page) page.parts = parts;
+    saveBook();
+  }
+
+  /* ---------- pages ---------- */
+  function paintPages() {
+    const strip = $("#stagePages");
+    const chips = $("#pageChips");
+    if (!strip || !chips) return;
+    if (!game || !book) {
+      strip.hidden = true;
+      chips.innerHTML = "";
+      return;
+    }
+    strip.hidden = !(editing || book.pages.length > 1);
+    chips.innerHTML = book.pages
+      .map((p) => {
+        const active = p.id === book.active;
+        const name = esc(p.name || "Page");
+        const del =
+          editing && book.pages.length > 1 && active
+            ? `<button class="page-del" type="button" data-delpage="${esc(p.id)}" aria-label="Remove this page" title="Remove this page">×</button>`
+            : "";
+        return `<button class="page-chip" type="button" data-page="${esc(p.id)}" aria-pressed="${active}" title="${name} — edits made here stay here"><span class="page-name" data-pagename="${esc(p.id)}">${name}</span>${del}</button>`;
+      })
+      .join("");
+    chips.querySelectorAll("[data-pagename]").forEach((n) => (n.contentEditable = editing ? "true" : "false"));
+  }
+
+  function switchPage(id) {
+    if (!game || !book) return;
+    const page = book.pages.find((p) => p.id === id);
+    if (!page) return;
+    closeAsk();
+    book.active = id;
+    saveBook();
+    parts = (page.parts || []).map(normalize);
+    emojiTarget = null;
+    paintPages();
+    draw();
+    applyEditable();
+  }
+
+  function addPage(name) {
+    if (!game) return null;
+    if (!book) book = pagesOf(game.id);
+    const page = { id: newId("page"), name: String(name || `Page ${book.pages.length + 1}`).slice(0, 32), parts: [] };
+    book.pages.push(page);
+    return page;
+  }
+
+  function deletePage(id) {
+    if (!game || !book || book.pages.length < 2) return;
+    const index = book.pages.findIndex((p) => p.id === id);
+    if (index < 0) return;
+    const gone = book.pages[index];
+    if (!window.confirm(`Remove the page “${gone.name}” and everything on it?`)) return;
+    book.pages.splice(index, 1);
+    if (book.active === gone.id) book.active = book.pages[Math.max(0, index - 1)].id;
+    saveBook();
+    parts = (pageIn(book).parts || []).map(normalize);
+    paintPages();
+    draw();
+    applyEditable();
+    toast(`Page “${gone.name}” removed.`);
+  }
+
+  /* The assistant asks, right after a mode lands, whether it deserves its own page. */
+  function askForPage(partId) {
+    const part = parts.find((p) => p.id === partId);
+    const ask = $("#stageAsk");
+    if (!part || !ask) return;
+    askPart = partId;
+    const name = (part.card && part.card.name) || part.label || "this mode";
+    $("#askText").textContent =
+      `Added “${name}”. Do you want a new page for it? A page keeps its own pieces, so what you put there stays there and never shows on your other pages.`;
+    ask.hidden = false;
+    $("#askYes").focus({ preventScroll: true });
+  }
+
+  function closeAsk() {
+    askPart = "";
+    const ask = $("#stageAsk");
+    if (ask) ask.hidden = true;
+  }
+
+  function answerAsk(yes) {
+    const partId = askPart;
+    closeAsk();
+    if (!yes || !partId) return;
+    const part = parts.find((p) => p.id === partId);
+    if (!part) return;
+    const name = String((part.card && part.card.name) || part.label || "New page").slice(0, 32);
+    const page = addPage(name);
+    if (!page) return;
+    parts = parts.filter((p) => p.id !== partId);
+    store();                 // the page it was made on no longer holds it
+    book.active = page.id;
+    page.parts = [part];
+    saveBook();
+    parts = [part];
+    emojiTarget = null;
+    paintPages();
+    draw();
+    applyEditable();
+    toast(`New page “${page.name}” — what you add here stays here.`, "ok");
   }
 
   /* ---------- pieces ---------- */
@@ -617,6 +763,7 @@
       openTab.hidden = !href;
       if (href) openTab.href = href;
     }
+    paintPages();
     paintFull();
   }
 
@@ -629,6 +776,7 @@
   function exitEdit() {
     editing = false;
     tool = "";
+    closeAsk();
     tools.querySelectorAll(".edit-tool[data-tool]").forEach((btn) => btn.classList.remove("is-active"));
     applyEditable();
     paintHeader();
@@ -642,10 +790,12 @@
   }
 
   function place(kind, x, y, label) {
-    parts.push(newPart(kind, x, y, label));
+    const part = newPart(kind, x, y, label);
+    parts.push(part);
     store();
     draw();
     applyEditable();
+    if (kind === "mode") askForPage(part.id);
   }
 
   /* a theme's match list: plain names, or names with a description */
@@ -703,6 +853,7 @@
     game = nextGame;
     theme = themeFor(game);
     paintTheme();
+    book = pagesOf(game.id);
     parts = load(game.id).map(normalize);
     emojiTarget = null;
     editing = false;
@@ -729,6 +880,8 @@
   function close() {
     if (!stage) return;
     exitFull();
+    closeAsk();
+    book = null;
     stage.hidden = true;
     document.body.classList.remove("locked");
     closeModal();
@@ -911,9 +1064,53 @@
     store();
   }
 
+  function bindPages() {
+    const chips = $("#pageChips");
+    const add = $("#addPageBtn");
+    if (!chips || !add) return;
+    chips.addEventListener("click", (e) => {
+      if (!book) return;
+      const del = e.target.closest("[data-delpage]");
+      if (del) {
+        e.stopPropagation();
+        deletePage(del.dataset.delpage);
+        return;
+      }
+      const chip = e.target.closest("[data-page]");
+      if (!chip) return;
+      if (chip.dataset.page !== book.active) {
+        switchPage(chip.dataset.page);
+        return;
+      }
+      if (editing && e.target.closest("[data-pagename]")) return; // renaming the open page
+      switchPage(chip.dataset.page);
+    });
+    chips.addEventListener("input", (e) => {
+      const node = e.target.closest("[data-pagename]");
+      if (!node || !book) return;
+      const page = book.pages.find((p) => p.id === node.dataset.pagename);
+      if (!page) return;
+      page.name = node.textContent.trim().slice(0, 32) || "Page";
+      saveBook();
+    });
+    add.addEventListener("click", () => {
+      if (!editing) enterEdit();
+      const page = addPage("");
+      if (!page) return;
+      saveBook();
+      switchPage(page.id);
+      toast(`New page “${page.name}” — use the Add buttons below.`);
+    });
+    const yes = $("#askYes");
+    const no = $("#askNo");
+    if (yes) yes.addEventListener("click", () => answerAsk(true));
+    if (no) no.addEventListener("click", () => answerAsk(false));
+  }
+
   function bind() {
     stage = $("#playStage");
     if (!stage) return;
+    bindPages();
     frame = $("#playFrame");
     layer = $("#editLayer");
     tools = $("#editTools");
@@ -957,6 +1154,10 @@
     return load(gameId).length;
   }
 
+  function pageCount(gameId) {
+    return pagesOf(gameId).pages.length;
+  }
+
   /* Another window edited the same game: rebuild the stage from storage. */
   function refresh() {
     if (!stage || !game || stage.hidden) return;
@@ -966,6 +1167,7 @@
         : null;
     if (fresh) game = fresh;
     theme = themeFor(game);
+    book = pagesOf(game.id);
     parts = load(game.id).map(normalize);
     paintTheme();
     draw();
@@ -973,5 +1175,5 @@
     paintHeader();
   }
 
-  window.PowerplayStage = { open, close, bind, partCount, refresh, KEY, get FORMATS() { return formatList().map((f) => f.name); }, themeFor };
+  window.PowerplayStage = { open, close, bind, partCount, refresh, switchPage, pageCount, KEY, get FORMATS() { return formatList().map((f) => f.name); }, themeFor };
 })();
