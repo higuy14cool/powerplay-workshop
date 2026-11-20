@@ -928,6 +928,22 @@ render();
     }
   }
 
+  /* "Show me the preview" is an order, so it runs the build instead of describing it. */
+  function runPreview() {
+    if (!current) return false;
+    if (editingCode && codeEditor) current.code = codeEditor.value;
+    current.code = current.code || "";
+    codeOutput.textContent = current.code;
+    previewFrame.setAttribute("srcdoc", "");
+    switchTab("preview");
+    // A fresh srcdoc means a fresh run, so asking again restarts the app or game.
+    setTimeout(() => previewFrame.setAttribute("srcdoc", current.code), 30);
+    const panel = $("#blueprintPanel");
+    if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (window.PowerplayApp) window.PowerplayApp.toast("Preview running.", "ok");
+    return true;
+  }
+
   function renderPlan(plan, silent) {
     $("#bpTitle").textContent = plan.name;
     $("#bpSubtitle").textContent = plan.archetype.tagline;
@@ -1268,6 +1284,19 @@ render();
     return "";
   }
 
+  // "show me the preview", "run it", "let me play it" — a look, not a change.
+  const PREVIEW_VERB =
+    /\b(show|open|run|launch|start|replay|play|see|view|display|render|pull up|bring up|fire up)\b/;
+  const PREVIEW_TARGET = /\b(it|this|that|preview|app|game|build|demo|result|site|page)\b/;
+  function wantsPreview(text) {
+    const t = String(text || "").toLowerCase().replace(/[^\w\s'!?]/g, " ").replace(/\s+/g, " ").trim();
+    if (!t || t.length > 70) return false;
+    if (/\b(how|why|explain|tutorial|teach|learn|mean|instead of)\b/.test(t)) return false;
+    if (/\b(make|build|create|add|change|fix|update|remove|edit|rewrite|design|replace)\b/.test(t)) return false;
+    if (/\bpreview\b/.test(t)) return true;
+    return PREVIEW_VERB.test(t) && PREVIEW_TARGET.test(t);
+  }
+
   function respond(prompt) {
     const trimmed = prompt.trim();
     if (!trimmed) return;
@@ -1286,6 +1315,24 @@ render();
         addMessage("ai", quick);
         busy = false;
       }, 120);
+      return;
+    }
+
+    // "Show me the preview" runs the build at once, even with no model set up.
+    if (wantsPreview(trimmed)) {
+      hideTyping();
+      if (runPreview()) {
+        addMessage(
+          "ai",
+          `Running **${current.name}** — it is live in the **Preview** tab on the right now. Say "run it" again whenever you want it started over.`
+        );
+      } else {
+        addMessage(
+          "ai",
+          "Nothing to preview yet. Tell me the app or game you want — one sentence is enough — and I'll build it, then run it right here."
+        );
+      }
+      busy = false;
       return;
     }
 
@@ -1325,6 +1372,7 @@ render();
     "Never replace their idea with a different app, never hand back a template because their wording was unfamiliar, and never say you cannot build something. Build the closest real, working version and say in one line what you left out.",
     "If the request is ambiguous, take the most likely reading and name it in one short line.",
     "If they ask a question or how something works, answer it plainly in 2-4 short paragraphs, no code.",
+    "When they ask to see, run or play the preview, it is already running in the Preview tab: answer in one short sentence about what is on screen, never rebuild the app for that.",
     "When you are changing an app or game that already exists, you are adding to it: send only the small FIND/REPLACE, ADD AFTER or APPEND blocks the request below describes, never the whole file back, and never restyle or rewrite what was not asked about.",
     "A message shaped like 'Add a new feature to X, a game:' with nothing after the colon names no feature. Never invent one and never build a new game for it: ask what the feature should be, with two or three short examples.",
     "Never answer a change request with a complete different app or game. If you cannot tell what to change, ask one short question and wait.",
@@ -2141,7 +2189,7 @@ It is a ${plan.archetype.name} build because ${detect(trimmed) === GENERIC ? `${
     }
   }
 
-  window.PowerplayArchitect = { editGame };
+  window.PowerplayArchitect = { editGame, runPreview, hasPlan: () => !!current };
 
   /* Replay a saved conversation, messages first, then its blueprint. */
   function restoreSession(chat) {
