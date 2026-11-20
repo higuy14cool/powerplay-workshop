@@ -137,6 +137,10 @@
       try {
         if (this === window.localStorage && String(key).indexOf(PREFIX) === 0) {
           queue(String(key), String(value));
+          try {
+            /* the save indicator and the other windows listen for this */
+            window.dispatchEvent(new CustomEvent("powerplay:saved", { detail: { key: String(key) } }));
+          } catch (ignored) {}
         }
       } catch (err) {
         /* a browser that refuses to compare storage objects still saves normally */

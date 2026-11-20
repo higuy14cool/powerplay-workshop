@@ -859,3 +859,10 @@ body.pp-fs{overflow:hidden}
   .architect-grid.pp-split .chips-row,
   .architect-grid.pp-split .composer-hint{display:none}
 }
+
+/* the quiet proof that every change is already saved */
+.save-chip{position:fixed;right:14px;bottom:14px;z-index:70;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(8,10,9,.86);color:var(--muted);opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease;pointer-events:none;backdrop-filter:blur(8px)}
+.save-chip.is-on{opacity:1;transform:none}
+.save-chip[data-state="ok"]{color:#b8ff3d;border-color:rgba(184,255,61,.38)}
+.save-chip[data-state="remote"]{color:#9ec8ff;border-color:rgba(158,200,255,.4)}
+@media (max-width:520px){.save-chip{right:10px;bottom:10px;font-size:9.5px;padding:6px 10px}}

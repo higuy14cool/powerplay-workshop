@@ -957,5 +957,21 @@
     return load(gameId).length;
   }
 
-  window.PowerplayStage = { open, close, bind, partCount, KEY, get FORMATS() { return formatList().map((f) => f.name); }, themeFor };
+  /* Another window edited the same game: rebuild the stage from storage. */
+  function refresh() {
+    if (!stage || !game || stage.hidden) return;
+    const fresh =
+      window.PowerplayApp && window.PowerplayApp.getGames
+        ? window.PowerplayApp.getGames().find((g) => g.id === game.id)
+        : null;
+    if (fresh) game = fresh;
+    theme = themeFor(game);
+    parts = load(game.id).map(normalize);
+    paintTheme();
+    draw();
+    applyEditable();
+    paintHeader();
+  }
+
+  window.PowerplayStage = { open, close, bind, partCount, refresh, KEY, get FORMATS() { return formatList().map((f) => f.name); }, themeFor };
 })();

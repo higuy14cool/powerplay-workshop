@@ -750,6 +750,16 @@
     return game;
   }
 
+  /* Another window (or the app) changed the library: pull it in, no reload. */
+  function refresh() {
+    const saved = loadGames();
+    if (!saved) return;
+    const openId = state.activeGame && !$("#gameModal").hidden ? state.activeGame.id : null;
+    state.games = saved;
+    renderLibrary();
+    if (openId && state.games.some((g) => g.id === openId)) openGame(openId);
+  }
+
   /* ---------- replace a game's URL ---------- */
   // Accepts a full http(s) link, a bare domain, or a path inside this project.
   function normalizeGameUrl(raw) {
@@ -1097,6 +1107,7 @@
       installLink,
       setGameScope,
       addPlay,
+      refresh,
     };
   }
 

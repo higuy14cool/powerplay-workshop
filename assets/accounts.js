@@ -288,6 +288,15 @@
     }
   }
 
+  /* Someone in another window changed the workshop: read it again. */
+  function reload() {
+    state = load();
+    if (state.currentUserId && !state.users.some((u) => u.id === state.currentUserId)) {
+      state.currentUserId = null;
+    }
+    return state;
+  }
+
   function games() {
     return window.PowerplayGames ? window.PowerplayGames.GAMES : [];
   }
@@ -677,6 +686,7 @@
     setAvatar,
     setTheme,
     themeFor,
+    reload,
     save,
   };
 })();

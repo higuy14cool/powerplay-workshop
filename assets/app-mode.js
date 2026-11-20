@@ -701,6 +701,21 @@
     renderChat();
   }
 
+  /* Another window changed the workshop: read it again and repaint what is on screen. */
+  function refreshLive() {
+    A.reload();
+    const me = A.current();
+    if (!me) return;
+    paintMe();
+    applyTheme(me);
+    refreshScope();
+    if (!$("#workersModal").hidden) {
+      renderTeam();
+      renderScopes();
+    }
+    if (!$("#profileModal").hidden) renderProfile();
+  }
+
   function renderTeam() {
     const me = A.current();
     if (!me) return;
@@ -865,5 +880,5 @@
     else showLogin();
   });
 
-  window.PowerplayAppMode = { openModal, closeModal, toast, paintMe, applyTheme, refreshScope, renderTeam };
+  window.PowerplayAppMode = { openModal, closeModal, toast, paintMe, applyTheme, refreshScope, renderTeam, refreshLive };
 })();
