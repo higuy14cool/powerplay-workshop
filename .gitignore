@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 *.log
 powerplay-workshop.zip
+.agent_tmp/
