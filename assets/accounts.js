@@ -60,6 +60,17 @@
     return true;
   }
 
+  /* The workshop used to greet each new device with a message of its own. That
+     text is not something anyone wrote, so it is dropped everywhere it is found. */
+  const AUTO_GREETINGS = [
+    "welcome to the workshop. assign a game to a worker and it lands on their home screen.",
+    "welcome to the workshop.",
+  ];
+
+  function isAutoGreeting(m) {
+    return !!m && AUTO_GREETINGS.indexOf(String(m.text || "").trim().toLowerCase()) >= 0;
+  }
+
   function seed() {
     return {
       users: [
@@ -75,15 +86,7 @@
           customAccent: null,
         },
       ],
-      messages: [
-        {
-          id: uid("m"),
-          scope: "group",
-          from: "u-admin",
-          text: "Welcome to the workshop. Assign a game to a worker and it lands on their home screen.",
-          at: Date.now() - 1000 * 60 * 30,
-        },
-      ],
+      messages: [],
       currentUserId: null,
       chats: [],   // named chats that several people share, made with "+ New chat"
       deleted: [], // ids of messages someone removed, so a removal travels too
@@ -286,7 +289,8 @@
             else delete m.image;
           }
           return m;
-        });
+        })
+        .filter((m) => !isAutoGreeting(m));
       const known = new Set(data.users.map((u) => u.id));
       data.chats = (Array.isArray(data.chats) ? data.chats : [])
         .filter((c) => c && c.id && Array.isArray(c.members))
@@ -703,6 +707,7 @@
     bundle.messages.forEach((m) => {
       /* a worker's device keeps only the chats that worker may open */
       if (!m || !m.id || !me || !canSeeScope(m.scope, me)) return;
+      if (isAutoGreeting(m)) return; /* an old device may still offer it */
       incoming.set(m.id, m);
     });
     const gone = new Set((Array.isArray(bundle.deleted) ? bundle.deleted : []).map((d) => d && d.id).filter(Boolean));
