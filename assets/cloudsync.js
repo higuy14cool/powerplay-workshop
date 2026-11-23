@@ -5,7 +5,24 @@
    signed-in account decides what each device actually keeps and shows. */
 (function () {
   const TOPIC = "powerplay-higuy14cool-workshop-sync-v1";
-  const BASE = "https://ntfy.sh/" + TOPIC;
+  /* A test or a second workshop can point at its own channel without touching
+     anybody's real data: localStorage["powerplay.sync.topic"] = "another-topic". */
+  function base() {
+    let name = TOPIC;
+    try {
+      const custom = localStorage.getItem("powerplay.sync.topic");
+      if (custom && custom.trim()) name = custom.trim();
+    } catch (err) {}
+    /* A copy opened on this computer is a test copy: it keeps its own channel so
+       a trial can never land in the workshop's real one. */
+    try {
+      const host = String(location.hostname || "");
+      if (!host || host === "localhost" || host === "127.0.0.1" || location.protocol === "file:") {
+        name += "-dev";
+      }
+    } catch (err) {}
+    return "https://ntfy.sh/" + name;
+  }
   const STORE = "powerplay.cloud.v1";
   const PREFIX = "powerplay.";
   const LIMIT = 2600; // a relay message holds 4 KB; stay well under it
@@ -130,7 +147,7 @@
   async function post(message, title, tries = 2) {
     for (let attempt = 0; attempt < tries; attempt++) {
       try {
-        const res = await fetch(BASE, {
+        const res = await fetch(base(), {
           method: "POST",
           headers: { "Content-Type": "text/plain", Title: title || "POWERPLAY sync" },
           body: message,
@@ -211,6 +228,12 @@
           return;
         }
         if (!here.name && page.name) here.name = page.name;
+        /* an explicit removal list travels, so a piece taken away on one device
+           stays away; anything simply missing is kept, never guessed at */
+        if (Array.isArray(page.gone) && page.gone.length && Array.isArray(here.parts)) {
+          const drop = new Set(page.gone);
+          here.parts = here.parts.filter((x) => !x || !drop.has(x.id));
+        }
         const known = new Set((here.parts || []).map((x) => x && x.id));
         (page.parts || []).forEach((part) => {
           if (part && part.id && !known.has(part.id)) {
@@ -246,16 +269,54 @@
     return JSON.stringify(out);
   }
 
+  /* The Architect's saved chats are joined the same way: a chat kept on one
+     device is not dropped because another device has not got it, and the copy
+     with the newer update wins inside a chat. */
+  function mergeArchitect(mine, theirs) {
+    let a = null;
+    let b = null;
+    try {
+      a = JSON.parse(mine || "null");
+      b = JSON.parse(theirs || "null");
+    } catch (err) {
+      return null;
+    }
+    if (!b || !b.chats) return null;
+    const out = a && a.chats ? a : { v: 1, current: {}, chats: {} };
+    out.v = out.v || 1;
+    out.current = out.current || {};
+    out.chats = out.chats || {};
+    Object.keys(b.chats).forEach((userId) => {
+      const list = b.chats[userId];
+      if (!Array.isArray(list)) return;
+      if (!Array.isArray(out.chats[userId])) out.chats[userId] = [];
+      list.forEach((chat) => {
+        if (!chat || !chat.id) return;
+        const here = out.chats[userId].find((c) => c && c.id === chat.id);
+        if (!here) out.chats[userId].push(chat);
+        else if ((chat.updatedAt || 0) > (here.updatedAt || 0)) Object.assign(here, chat);
+      });
+    });
+    Object.keys(b.current || {}).forEach((userId) => {
+      if (!out.current[userId] && b.current[userId]) out.current[userId] = b.current[userId];
+    });
+    return JSON.stringify(out);
+  }
+
   function merged(key, mine, theirs) {
     if (key === "powerplay.playedits.v2") return mergeEdits(mine, theirs);
     if (key === "powerplay.games.v3") return mergeGames(mine, theirs);
+    if (key === "powerplay.architect.chats.v1") return mergeArchitect(mine, theirs);
     return null;
   }
 
   function applyRaw(ev) {
     const key = ev.key;
     const mine = localStorage.getItem(key);
-    const next = merged(key, mine, ev.body) || ev.body;
+    /* An unreadable incoming copy never replaces what is here: the worst case
+       must be "nothing changed", never "my work is gone". */
+    const next = merged(key, mine, ev.body);
+    if (next == null) return false;
     if (next === mine) {
       touch(key, ev.at);
       return false;
@@ -300,7 +361,7 @@
     const since = db.since || "all";
     let rows = [];
     try {
-      const res = await fetch(BASE + "/json?poll=1&since=" + encodeURIComponent(since), { cache: "no-store" });
+      const res = await fetch(base() + "/json?poll=1&since=" + encodeURIComponent(since), { cache: "no-store" });
       if (res.status === 429) {
         /* the free relay asks you to slow down now and then: wait, then catch up */
         backoff = Math.min(backoff ? backoff * 2 : 30000, 120000);

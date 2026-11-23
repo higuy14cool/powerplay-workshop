@@ -86,6 +86,7 @@
       ],
       currentUserId: null,
       chats: [],   // named chats that several people share, made with "+ New chat"
+      deleted: [], // ids of messages someone removed, so a removal travels too
     };
   }
 
@@ -687,16 +688,16 @@
       v: 1,
       chats: state.chats || [],
       messages: state.messages || [],
+      deleted: (state.deleted || []).slice(-300),
     };
   }
 
-  /* Messages are merged, never replaced: a message written on each device at the
-     same time both survive, an edit wins by its time, and a message the other
-     device deleted is dropped here too. Messages typed here after the snapshot
-     was taken are always kept. */
+  /* Messages are merged, never replaced, and nothing is ever removed just
+     because the other device has not seen it: a device that only carries a few
+     messages must not be able to empty the others. Only an explicit removal
+     (state.deleted) takes a message away, and an edit wins by its time. */
   function receiveChats(bundle, at) {
     if (!bundle || !Array.isArray(bundle.messages)) return false;
-    const when = Number(at || 0);
     const me = current();
     const incoming = new Map();
     bundle.messages.forEach((m) => {
@@ -704,22 +705,36 @@
       if (!m || !m.id || !me || !canSeeScope(m.scope, me)) return;
       incoming.set(m.id, m);
     });
+    const gone = new Set((Array.isArray(bundle.deleted) ? bundle.deleted : []).map((d) => d && d.id).filter(Boolean));
     let changed = false;
+    if (gone.size) {
+      if (!Array.isArray(state.deleted)) state.deleted = [];
+      const known = new Set(state.deleted.map((d) => d && d.id));
+      gone.forEach((id) => {
+        if (!known.has(id)) {
+          state.deleted.push({ id, at: Number(at || Date.now()) });
+          changed = true;
+        }
+      });
+    }
     const next = [];
     state.messages.forEach((m) => {
+      if (gone.has(m.id)) {
+        changed = true;
+        return;
+      }
       const remote = incoming.get(m.id);
       if (remote) {
         incoming.delete(m.id);
         const pick = (remote.editedAt || 0) > (m.editedAt || 0) ? remote : m;
         if (pick !== m) changed = true;
         next.push(pick);
-      } else if ((m.at || 0) > when) {
-        next.push(m);
       } else {
-        changed = true;
+        next.push(m);
       }
     });
     incoming.forEach((m) => {
+      if (gone.has(m.id)) return;
       next.push(m);
       changed = true;
     });
@@ -766,6 +781,9 @@
     const msg = findMessage(id);
     if (!canTouchMessage(msg)) return { ok: false, error: "You can't delete that message." };
     state.messages = state.messages.filter((m) => m.id !== id);
+    if (!Array.isArray(state.deleted)) state.deleted = [];
+    state.deleted.push({ id, at: Date.now() });
+    state.deleted = state.deleted.slice(-300);
     save();
     return { ok: true };
   }
