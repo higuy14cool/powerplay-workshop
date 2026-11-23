@@ -441,8 +441,9 @@
     scopes.forEach((scope) => {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "scope-chip" + (scope.id === state.scope ? " is-active" : "");
+      btn.className = "scope-chip" + (scope.id === state.scope ? " is-active" : "") + (scope.watch ? " is-watch" : "");
       btn.textContent = scope.kind === "dm" ? `@ ${scope.label}` : scope.kind === "chat" ? `# ${scope.label}` : scope.label;
+      if (scope.watch) btn.title = "You can read this chat and comment, not send messages";
       btn.addEventListener("click", () => {
         state.scope = scope.id;
         state.editingId = null;
@@ -452,9 +453,20 @@
     });
   }
 
+  function currentScope() {
+    return A.visibleScopes().find((s) => s.id === state.scope) || null;
+  }
+
+  /* true when this is someone else's chat: the admin reads and comments only */
+  function watching() {
+    return !!A.current() && !A.isParticipant(state.scope);
+  }
+
   function chatTitle() {
-    const scope = A.visibleScopes().find((s) => s.id === state.scope);
-    return scope ? (scope.kind === "dm" ? `Chat with ${scope.label}` : scope.label) : "Team chat";
+    const scope = currentScope();
+    if (!scope) return "Team chat";
+    const name = scope.kind === "dm" ? `Chat with ${scope.label}` : scope.label;
+    return watching() ? `${name} · read and comment only` : name;
   }
 
   function renderChat() {
@@ -464,10 +476,26 @@
     const log = $("#chatThread");
     const me = A.current();
     if (!log || !me) return;
+    const watch = watching();
+    const field = $("#chatInput");
+    const sendBtn = $("#chatForm") ? $("#chatForm button[type=submit]") : null;
+    const photoBtn = $("#chatPhotoBtn");
+    if (field) field.placeholder = watch ? "Add a comment for the people in this chat…" : "Message the crew…";
+    if (sendBtn) sendBtn.textContent = watch ? "Comment" : "Send";
+    if (photoBtn) photoBtn.hidden = watch;
     const msgs = A.messages(state.scope);
     log.innerHTML = "";
+    if (watch) {
+      const note = document.createElement("p");
+      note.className = "chat-watch-note";
+      note.textContent = "You are watching this chat. You can read it and leave comments, but the messages stay between the people in it.";
+      log.appendChild(note);
+    }
     if (!msgs.length) {
-      log.innerHTML = '<p class="empty-note">No messages yet — say hello.</p>';
+      const empty = document.createElement("p");
+      empty.className = "empty-note";
+      empty.textContent = "No messages yet — say hello.";
+      log.appendChild(empty);
       return;
     }
     const byId = {};
@@ -477,12 +505,12 @@
       const who = byId[m.from];
       const mine = m.from === me.id;
       const bubble = document.createElement("div");
-      bubble.className = "msg" + (mine ? " is-me" : "");
+      bubble.className = "msg" + (mine && !m.comment ? " is-me" : "") + (m.comment ? " is-comment" : "");
       bubble.dataset.msg = m.id;
 
       const label = document.createElement("small");
       const when = new Date(m.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      label.textContent = `${who ? who.username : "Someone"} · ${when}`;
+      label.textContent = `${who ? who.username : "Someone"} · ${when}` + (m.comment ? " · comment" : "");
       bubble.append(label);
 
       if (state.editingId === m.id) {
@@ -699,6 +727,7 @@
 
   async function sendPhoto(file) {
     const input = $("#chatInput");
+    if (watching()) return toast("A watched chat takes comments, not pictures.", "err");
     try {
       const pic = await shrinkPhoto(file);
       const res = A.sendMessage(state.scope, input ? input.value : "", pic);
@@ -716,7 +745,7 @@
     const input = $("#chatInput");
     const text = input.value.trim();
     if (!text) return;
-    const res = A.sendMessage(state.scope, text);
+    const res = watching() ? A.addComment(state.scope, text) : A.sendMessage(state.scope, text);
     if (!res.ok) return toast(res.error || "Message not sent.", "err");
     input.value = "";
     state.editingId = null;

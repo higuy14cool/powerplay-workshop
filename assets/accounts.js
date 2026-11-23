@@ -288,6 +288,8 @@
             if (pic) m.image = pic;
             else delete m.image;
           }
+          if (m.comment) m.comment = true;
+          else delete m.comment;
           return m;
         })
         .filter((m) => !isAutoGreeting(m));
@@ -600,6 +602,26 @@
     return "dm:" + [a, b].sort().join("|");
   }
 
+  /* Whose chat is it? The group belongs to everyone, a named chat to the people put
+     in it, and a DM to the two people in it. */
+  function isParticipant(scopeId, user = current()) {
+    if (!user) return false;
+    const id = String(scopeId || "");
+    if (id === "group") return true;
+    if (id.indexOf("dm:") === 0) return id.slice(3).split("|").indexOf(user.id) >= 0;
+    if (id.indexOf("chat:") === 0) {
+      const chat = chatFor(id);
+      return !!chat && chat.members.indexOf(user.id) >= 0;
+    }
+    return false;
+  }
+
+  /* An admin can watch a chat that is not theirs: read it and leave a comment, but
+     the messages in it stay the business of the people who are actually in it. */
+  function canComment(scopeId, user = current()) {
+    return !!user && user.role === "admin" && canSeeScope(scopeId, user) && !isParticipant(scopeId, user);
+  }
+
   /* A chat made with "+ New chat": a name and the people in it. Admins see every
      one of them so they can keep an eye on the team; everyone else sees the chats
      they were put in. */
@@ -607,22 +629,35 @@
     return (state.chats || [])
       .filter((c) => c.members.includes(user.id) || user.role === "admin")
       .sort((a, b) => (a.at || 0) - (b.at || 0))
-      .map((c) => ({ id: "chat:" + c.id, label: c.name, kind: "chat", chat: c }));
+      .map((c) => ({ id: "chat:" + c.id, label: c.name, kind: "chat", chat: c, watch: c.members.indexOf(user.id) < 0 }));
   }
 
   function visibleScopes(user = current()) {
     if (!user) return [];
     const head = [{ id: "group", label: "Group chat", kind: "group" }].concat(chatScopes(user));
     if (user.role === "admin") {
-      return head.concat(
-        state.users
-          .filter((u) => u.role === "worker")
-          .map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
-      );
+      const workers = state.users.filter((u) => u.role === "worker");
+      const mine = workers.map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }));
+      /* chats the workers have with each other, read-only */
+      const watched = [];
+      for (let i = 0; i < workers.length; i++) {
+        for (let j = i + 1; j < workers.length; j++) {
+          watched.push({
+            id: dmScope(workers[i].id, workers[j].id),
+            label: workers[i].username + " ↔ " + workers[j].username,
+            kind: "dm",
+            watch: true,
+          });
+        }
+      }
+      return head.concat(mine, watched);
     }
-    const admins = state.users.filter((u) => u.role === "admin");
+    /* a worker can message anyone else in the workshop; an admin can read those
+       chats but only comment in them */
     return head.concat(
-      admins.map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
+      state.users
+        .filter((u) => u.id !== user.id)
+        .map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
     );
   }
 
@@ -678,8 +713,32 @@
       return { ok: false, error: tooBig ? "That picture is too big — try a smaller one." : "That picture can't be sent." };
     }
     if (!canSeeScope(scopeId, user)) return { ok: false, error: "You can't post in that chat." };
+    if (!isParticipant(scopeId, user)) {
+      return { ok: false, error: "This chat is between other people — you can comment on it instead." };
+    }
     const msg = { id: uid("m"), scope: scopeId, from: user.id, text: body, at: Date.now() };
     if (pic) msg.image = pic;
+    state.messages.push(msg);
+    save();
+    return { ok: true, message: msg };
+  }
+
+  /* A comment an admin leaves in a chat they are only watching. It sits in the same
+     thread, marked, so the people in the chat can read it. */
+  function addComment(scopeId, text) {
+    const user = current();
+    const body = String(text || "").trim().slice(0, 400);
+    if (!user) return { ok: false, error: "Sign in first." };
+    if (!body) return { ok: false, error: "Write a comment first." };
+    if (!canComment(scopeId, user)) {
+      return {
+        ok: false,
+        error: canSeeScope(scopeId, user)
+          ? "You are in this chat — send a message instead."
+          : "You can't comment in that chat.",
+      };
+    }
+    const msg = { id: uid("m"), scope: scopeId, from: user.id, text: body, at: Date.now(), comment: true };
     state.messages.push(msg);
     save();
     return { ok: true, message: msg };
@@ -891,6 +950,9 @@
     canSeeScope,
     messages,
     sendMessage,
+    addComment,
+    isParticipant,
+    canComment,
     editMessage,
     deleteMessage,
     forwardMessage,

@@ -113,6 +113,13 @@ body:not(.is-locked) .login-screen{display:none}
 .msg{max-width:72%;padding:8px 11px;border-radius:14px;background:#12151f;border:1px solid var(--line);font-size:13.5px;line-height:1.45}
 .msg.is-me{align-self:flex-end;background:var(--lime-soft);border-color:rgba(184,255,61,.35)}
 .msg small{display:block;margin-bottom:3px;font-size:11px;color:var(--muted-2)}
+.msg.is-comment{background:rgba(255,196,61,.10);border-color:rgba(255,196,61,.4);border-left:3px solid #ffc43d}
+.msg.is-comment small{color:#ffcf6b}
+.chat-watch-note{
+  margin:0;padding:8px 11px;border-radius:10px;border:1px dashed var(--line);
+  font-size:12px;line-height:1.5;color:var(--muted);background:rgba(255,255,255,.03);
+}
+.scope-chip.is-watch{border-style:dashed;opacity:.9}
 .chat-form{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
 .chat-form input{padding:11px 13px;font-size:14px}
 .chat-form .btn{padding:0 18px;height:44px}
