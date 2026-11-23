@@ -13,7 +13,7 @@
   const STORE = "kv";
   const META_KEY = "powerplay.autosave.meta";
   const SYNC_KEY = "powerplay.sync.v1";
-  const SKIP_KEYS = [META_KEY, SYNC_KEY];
+  const SKIP_KEYS = [META_KEY, SYNC_KEY, "powerplay.github.v1"];
   const FLAG = "powerplay.autosave.restored";
   const BACKUP_URL = "powerplay-backup.json";
   const ACCOUNTS_FILE = "assets/accounts-data.js";
@@ -234,6 +234,19 @@
   }
 
   /* ---------- GitHub ---------- */
+  /* GitHub refuses a push whose content holds something that looks like a token.
+     A key pasted into a chat used to block every backup, so keys are stripped on
+     the way out and stay only in this browser. */
+  const SECRET_PATTERNS = [
+    /github_pat_[A-Za-z0-9_]{20,}/g,
+    /gh[pousr]_[A-Za-z0-9]{20,}/g,
+    /sk-[A-Za-z0-9_-]{20,}/g,
+  ];
+
+  function scrub(text) {
+    return SECRET_PATTERNS.reduce((out, re) => out.replace(re, "[removed: looks like a key]"), String(text));
+  }
+
   function b64(text) {
     const bytes = new TextEncoder().encode(text);
     let binary = "";
@@ -264,6 +277,12 @@
      turn "Resource not accessible" into the exact setting that is wrong. */
   async function explainFailure(cfg, status, message) {
     const base = "Backup failed: " + message + " ";
+    if (/secret detected|push protection|repository rule violation/i.test(message)) {
+      return (
+        base +
+        "GitHub blocked the save because something in the workshop data looks like a key it refuses to store — usually a token pasted into a chat or an old key saved in this browser. Keys are stripped from the save now, so press Turn on backup again; if it happens once more, delete the message that holds the key."
+      );
+    }
     const repo = cfg.repo;
     if (status === 401 || /bad credentials|requires authentication/i.test(message)) {
       return base + "The token is wrong, expired or was deleted — make a new one and paste it again.";
@@ -334,7 +353,8 @@
 
   async function putFile(cfg, path, text, message, sha) {
     const url = "https://api.github.com/repos/" + cfg.repo + "/contents/" + path;
-    const body = { message, branch: cfg.branch || "main", content: b64(text) };
+    const safe = scrub(text);
+    const body = { message, branch: cfg.branch || "main", content: b64(safe) };
     if (sha) body.sha = sha;
     const res = await fetch(url, { method: "PUT", headers: headers(cfg), body: JSON.stringify(body) });
     if (!res.ok) throw await failure(res);
