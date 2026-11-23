@@ -124,12 +124,31 @@
     $("#openAddGame").hidden = !admin;
   }
 
-  function onLogin(event) {
+  let checking = false;
+
+  async function onLogin(event) {
     event.preventDefault();
+    if (checking) return;
     const user = $("#loginUser").value.trim();
     const pass = $("#loginPass").value;
-    const result = A.login(user, pass);
     const error = $("#loginError");
+    let result = A.login(user, pass);
+    if (!result.ok) {
+      /* Not here yet: look for a freshly published account before refusing. */
+      checking = true;
+      const button = $("#loginBtn");
+      const label = button.textContent;
+      button.disabled = true;
+      button.textContent = "Checking…";
+      try {
+        const found = await A.refreshShared();
+        if (found) result = A.login(user, pass);
+      } finally {
+        checking = false;
+        button.disabled = false;
+        button.textContent = label;
+      }
+    }
     if (!result.ok) {
       error.textContent = result.error;
       error.hidden = false;

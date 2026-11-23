@@ -311,6 +311,27 @@
     return !!u && u.role === "admin";
   }
 
+  /* A worker signs in the moment the admin publishes: ask GitHub Pages for the
+     published people (bypassing the ten-minute asset cache) and merge them in. */
+  async function refreshShared() {
+    try {
+      const res = await fetch("assets/accounts-data.js?t=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) return false;
+      const text = await res.text();
+      const data = new Function("window", text + "\nreturn window.PowerplaySharedAccounts;")(
+        { PowerplaySharedAccounts: null }
+      );
+      if (!data || !Array.isArray(data.users) || !data.users.length) return false;
+      const before = state.users.length;
+      window.PowerplaySharedAccounts = data;
+      mergeSharedAccounts();
+      reload();
+      return state.users.length > before;
+    } catch (err) {
+      return false;
+    }
+  }
+
   function login(username, passcode) {
     const name = String(username || "").trim().toLowerCase();
     const pass = String(passcode || "").trim();
@@ -322,8 +343,9 @@
       return {
         ok: false,
         error:
-          "That username and passcode don't match in this browser. If the admin made this account on another computer, " +
-          "they must publish it: GitHub chip in the workshop → Turn on backup. Or import the account file they sent you below.",
+          "That username and passcode don't match in this browser, and no published account matches either. " +
+          "If the admin has not pressed Turn on backup yet, this is why; otherwise ask them for the account file and " +
+          "press “Import the account file” below.",
       };
     }
     state.currentUserId = user.id;
@@ -671,6 +693,7 @@
     unassign,
     assignedTo,
     login,
+    refreshShared,
     logout,
     visibleScopes,
     createChat,
