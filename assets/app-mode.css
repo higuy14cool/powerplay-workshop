@@ -29,6 +29,7 @@ body:not(.is-locked) .login-screen{display:none}
   background:rgba(255,95,158,.12);border:1px solid rgba(255,95,158,.4);color:#ffb3cd;
 }
 .login-hint{margin:0;color:var(--muted-2);font-size:12.5px;line-height:1.5}
+#loginImport{width:100%;white-space:normal;text-align:center;line-height:1.35;padding:11px 14px;font-size:13px}
 
 /* ---------- form primitives ---------- */
 .stack{display:flex;flex-direction:column;gap:12px}

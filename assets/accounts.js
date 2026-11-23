@@ -321,7 +321,9 @@
       // The commonest cause is an account made in a different browser, so say it.
       return {
         ok: false,
-        error: "That username and passcode don't match here. Accounts added in another browser only work once the admin's account file is published.",
+        error:
+          "That username and passcode don't match in this browser. If the admin made this account on another computer, " +
+          "they must publish it: GitHub chip in the workshop → Turn on backup. Or import the account file they sent you below.",
       };
     }
     state.currentUserId = user.id;

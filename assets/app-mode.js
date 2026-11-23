@@ -754,15 +754,25 @@
       ((window.PowerplaySharedAccounts && window.PowerplaySharedAccounts.users) || [])
         .map((u) => String(u.username || "").trim().toLowerCase())
     );
+    // people this browser has already pushed since the page loaded
+    (window.PowerplayPublishedUsers || []).forEach((name) =>
+      shared.add(String(name || "").trim().toLowerCase())
+    );
     const users = A.users();
     const local = users.filter((u) => !shared.has(String(u.username || "").trim().toLowerCase()));
     if (!local.length) {
       line.textContent = `All ${users.length} ${users.length === 1 ? "person is" : "people are"} published with the site, so an uninstall changes nothing.`;
       return;
     }
+    const names = local.map((u) => u.username).join(", ");
+    const sync = (window.PowerplayAutoSave && window.PowerplayAutoSave.status && window.PowerplayAutoSave.status()) || {};
+    if (sync.token && sync.repo) {
+      line.textContent = `${names} ${local.length === 1 ? "is" : "are"} being published to GitHub now — a few seconds and ${local.length === 1 ? "this person" : "these people"} can sign in on any computer.`;
+      return;
+    }
     line.textContent =
-      `Saved automatically here — ${local.map((u) => u.username).join(", ")} ` +
-      `${local.length === 1 ? "is" : "are"} not published yet. Turn on GitHub backup below so an uninstall cannot lose ${local.length === 1 ? "them" : "them"}.`;
+      `Saved in this browser only — ${names} ${local.length === 1 ? "is" : "are"} not published, so signing in on another computer fails. ` +
+      "Press the GitHub chip at the top and turn on backup to publish them.";
   }
 
   /* Read a saved account file back in, whatever wrapper it came in. */
@@ -869,11 +879,48 @@
     }, true);
   }
 
+  /* A worker on their own computer can take the admin's account file in straight from
+     the login card, so signing in never has to wait for a publish. */
+  function bindLoginImport() {
+    const btn = $("#loginImport");
+    const input = $("#loginImportInput");
+    if (!btn || !input) return;
+    const state = $("#loginImportState");
+    btn.addEventListener("click", () => input.click());
+    input.addEventListener("change", async () => {
+      const file = input.files && input.files[0];
+      input.value = "";
+      if (!file) return;
+      let users = null;
+      try {
+        users = readAccountFile(await file.text());
+      } catch (err) {
+        users = null;
+      }
+      if (!users || !users.length) {
+        if (state) {
+          state.hidden = false;
+          state.textContent = "That file has no accounts in it. Ask your admin to press Save account file again.";
+        }
+        return;
+      }
+      const res = A.importAccounts(users) || {};
+      if (state) {
+        state.hidden = false;
+        state.textContent =
+          "Account file imported — " + (res.added || 0) + " new and " + (res.updated || 0) +
+          " updated. Sign in with your own username and passcode.";
+      }
+      toast("Account file imported.", "ok");
+    });
+  }
+
   /* ---------- boot ---------- */
   document.addEventListener("DOMContentLoaded", () => {
     const hostLine = $("#loginHost");
     if (hostLine) hostLine.textContent = "Running on " + location.host;
     $("#loginForm").addEventListener("submit", onLogin);
+    bindLoginImport();
     $("#navLogout").addEventListener("click", onLogout);
     const user = A.current();
     if (user) showApp(user);

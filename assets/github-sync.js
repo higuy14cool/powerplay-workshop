@@ -88,11 +88,23 @@
     if (window.PowerplayApp && window.PowerplayApp.toast) window.PowerplayApp.toast(text, kind || "ok");
   }
 
+  /* The published accounts file now carries these people, so the workers panel can stop
+     calling them "not published" without waiting for a reload. */
+  function notePublished() {
+    const A = window.PowerplayAccounts;
+    if (A && A.users) window.PowerplayPublishedUsers = A.users().map((u) => u.username);
+    const modal = document.getElementById("workersModal");
+    if (modal && !modal.hidden && window.PowerplayAppMode && window.PowerplayAppMode.renderTeam) {
+      window.PowerplayAppMode.renderTeam();
+    }
+  }
+
   async function run(options) {
     const A = window.PowerplayAutoSave;
     if (!A || !A.syncNow) return { ok: false, error: "Backup is not available on this page." };
     paint();
     const res = await A.syncNow(options || { manual: true });
+    if (res && res.ok) notePublished();
     paint();
     return res;
   }
