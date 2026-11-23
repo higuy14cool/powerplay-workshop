@@ -743,7 +743,9 @@
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast(`Account file with ${users.length} ${users.length === 1 ? "person" : "people"} downloaded.`, "ok");
+    toast(
+      `Account file with ${users.length} ${users.length === 1 ? "person" : "people"} downloaded — send it to your worker.`, "ok"
+    );
   }
 
   /* Which people would disappear if this browser's data went away. */

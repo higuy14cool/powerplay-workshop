@@ -253,6 +253,55 @@
   }
 
   /* What the repository holds now, so a backup adds to it instead of replacing it. */
+  async function failure(res) {
+    const why = await res.json().catch(() => ({}));
+    const err = new Error(why.message || "GitHub said " + res.status);
+    err.status = res.status;
+    return err;
+  }
+
+  /* GitHub's refusals are terse, so ask the repository what this token may do and
+     turn "Resource not accessible" into the exact setting that is wrong. */
+  async function explainFailure(cfg, status, message) {
+    const base = "Backup failed: " + message + " ";
+    const repo = cfg.repo;
+    if (status === 401 || /bad credentials|requires authentication/i.test(message)) {
+      return base + "The token is wrong, expired or was deleted — make a new one and paste it again.";
+    }
+    if (status === 403 || /not accessible/i.test(message)) {
+      try {
+        const res = await fetch("https://api.github.com/repos/" + repo, { headers: headers(cfg), cache: "no-store" });
+        if (res.status === 401) return base + "The token is wrong or expired — make a new one and paste it again.";
+        if (res.status === 404) {
+          return (
+            base +
+            "The token cannot see " + repo + ". Edit the token and put this repository under “Only select repositories”."
+          );
+        }
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (!(data.permissions && data.permissions.push)) {
+            return (
+              base +
+              "This token may only read " + repo + ". Open the token on GitHub (Settings → Developer settings → Fine-grained tokens), set Repository permissions → Contents to Read and write, press Update, then paste a fresh token here."
+            );
+          }
+          return (
+            base +
+            "The token may push to " + repo + ", but GitHub refused this write. Make sure Contents is Read and write (not just Metadata) and that branch " +
+            (cfg.branch || "main") + " is not protected."
+          );
+        }
+      } catch (err) {
+        /* the explanation is a nicety; fall through to the plain one */
+      }
+    }
+    if (status === 404) {
+      return base + "GitHub has no " + repo + ", or the token cannot see it. Check the Owner and Repository boxes and the token's repository list.";
+    }
+    return base + "Check Owner, Repository, Branch, and that the token has Contents: read and write on that one repository.";
+  }
+
   async function getFile(cfg, path) {
     const url = "https://api.github.com/repos/" + cfg.repo + "/contents/" + path;
     const res = await fetch(url + "?ref=" + encodeURIComponent(cfg.branch || "main"), {
@@ -260,10 +309,7 @@
       cache: "no-store",
     });
     if (res.status === 404) return { sha: null, text: "" };
-    if (!res.ok) {
-      const why = await res.json().catch(() => ({}));
-      throw new Error(why.message || "GitHub said " + res.status);
-    }
+    if (!res.ok) throw await failure(res);
     const data = await res.json();
     let text = "";
     if (data && data.content) {
@@ -291,10 +337,7 @@
     const body = { message, branch: cfg.branch || "main", content: b64(text) };
     if (sha) body.sha = sha;
     const res = await fetch(url, { method: "PUT", headers: headers(cfg), body: JSON.stringify(body) });
-    if (!res.ok) {
-      const why = await res.json().catch(() => ({}));
-      throw new Error(why.message || "GitHub said " + res.status);
-    }
+    if (!res.ok) throw await failure(res);
     return true;
   }
 
@@ -342,7 +385,7 @@
       writeSync({ at: Date.now(), ok: true, error: "" });
       return { ok: true };
     } catch (err) {
-      const error = String((err && err.message) || err);
+      const error = await explainFailure(cfg, err && err.status, String((err && err.message) || err));
       writeSync({ at: Date.now(), ok: false, error });
       return { ok: false, error };
     } finally {

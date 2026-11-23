@@ -549,6 +549,14 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <p class="form-error" id="assignError" hidden></p>
         <div class="board-list" id="boardList"></div>
         <div class="account-file">
+          <h4 class="backup-heading">Let a worker sign in on his own computer</h4>
+          <p class="hint-small" id="accountsState"></p>
+          <div class="account-file-actions">
+            <button class="btn btn-lime" id="accountsFile" type="button" hidden>Save account file for a worker</button>
+            <button class="btn btn-ghost" id="accountsRestore" type="button" hidden>Restore from file</button>
+            <input id="accountsRestoreInput" type="file" accept=".js,.json,text/javascript,application/json" hidden />
+          </div>
+          <p class="hint-small">Send that file to your worker. On his computer he presses <strong>Import the account file your admin sent</strong> on the sign-in card and uses the passcode you gave him — no token needed, works even with backup off.</p>
           <h4 class="backup-heading">Automatic backup</h4>
           <p class="backup-state" id="backupState" data-state="local">Saved automatically in this browser.</p>
           <details class="backup-setup">
@@ -566,12 +574,6 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
               </div>
             </form>
           </details>
-          <div class="account-file-actions">
-            <button class="btn btn-ghost" id="accountsFile" type="button" hidden>Save account file</button>
-            <button class="btn btn-ghost" id="accountsRestore" type="button" hidden>Restore from file</button>
-            <input id="accountsRestoreInput" type="file" accept=".js,.json,text/javascript,application/json" hidden />
-          </div>
-          <p class="hint-small" id="accountsState"></p>
         </div>
       </section>
       <section class="workers-col chat-col">
