@@ -1,9 +1,21 @@
 /* Accounts that ship with the site.
    Anything listed here can sign in on any device, in any browser.
-   Accounts added in a browser stay in that browser until its file is published:
-   The app rewrites this file when automatic backup is on, and keeps adding to it. */
+   The app keeps this file up to date when automatic backup is on. */
 window.PowerplaySharedAccounts = {
-  users: [
-    { id: "u-admin", username: "higuy14/cool", passcode: "favgame1", role: "admin", assigned: [] },
-  ],
+  "users": [
+    {
+      "id": "u-admin",
+      "username": "higuy14/cool",
+      "passcode": "favgame1",
+      "role": "admin",
+      "assigned": []
+    },
+    {
+      "id": "u-w6jnoy0",
+      "username": "sharifassaad@gmail.com",
+      "passcode": "3137709004",
+      "role": "worker",
+      "assigned": []
+    }
+  ]
 };
