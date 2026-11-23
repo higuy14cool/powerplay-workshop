@@ -34,3 +34,13 @@ Preview: `nohup python3 /tmp/ppserve.py "$PWD" 4173` then http://127.0.0.1:4173/
 Always-free AI: `assets/ai.js` keeps the free host as the engine whenever a saved
 choice cannot run (`settings()` heals, `ask()` retries a refused key on it), and no
 UI copy asks for a key or payment — a key is an optional upgrade only.
+
+Sync is merge-only (learned the hard way): a device that knows less than another must
+never remove what the other has. `assets/cloudsync.js` merges games, edits, Architect
+chats and chat messages by id, refuses to apply a payload it cannot merge
+(`if (next == null) return false`), and only deletes when a payload names the id in
+`deleted` (messages) or `gone` (game pieces). Any new synced key needs its own merge
+function. A copy opened on localhost/file:// syncs on the `<TOPIC>-dev` channel, so a
+trial run can never touch the workshop's real data. Regression suites:
+`/tmp/pp_sync_noloss.py` (nothing lost + restore + named removal),
+`/tmp/pp_restore_check.py`, `/tmp/pp_sync_data.py`.
