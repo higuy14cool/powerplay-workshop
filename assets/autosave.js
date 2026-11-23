@@ -382,9 +382,57 @@
   }
 
   /* Bring a published backup into this browser. People come back first, then chats. */
+  /* Games and manual edits come back add-on only: anything this browser already has
+     (a newer version, a game made while offline) wins, so a restore never overwrites work. */
+  function mergeLibrary(keys) {
+    let added = 0;
+    const read = (key, fallback) => {
+      try {
+        const raw = nativeGet.call(window.localStorage, key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch (err) {
+        return fallback;
+      }
+    };
+    const games = read("powerplay.games.v3", []);
+    if (Array.isArray(games) && keys["powerplay.games.v3"]) {
+      try {
+        const saved = JSON.parse(keys["powerplay.games.v3"]);
+        const have = new Set(games.map((g) => g && g.id));
+        let touched = false;
+        (Array.isArray(saved) ? saved : []).forEach((g) => {
+          if (!g || !g.id || have.has(g.id)) return;
+          games.push(g);
+          have.add(g.id);
+          touched = true;
+          added++;
+        });
+        if (touched) nativeSet.call(window.localStorage, "powerplay.games.v3", JSON.stringify(games));
+      } catch (err) {}
+    }
+    const edits = read("powerplay.playedits.v2", {});
+    if (edits && typeof edits === "object" && keys["powerplay.playedits.v2"]) {
+      try {
+        const saved = JSON.parse(keys["powerplay.playedits.v2"]);
+        let touched = false;
+        Object.keys(saved || {}).forEach((id) => {
+          if (Object.prototype.hasOwnProperty.call(edits, id)) return;
+          edits[id] = saved[id];
+          touched = true;
+          added++;
+        });
+        if (touched) nativeSet.call(window.localStorage, "powerplay.playedits.v2", JSON.stringify(edits));
+      } catch (err) {}
+    }
+    return added;
+  }
+
   function applyBackup(data) {
-    if (!data || !data.keys) return { added: 0, chats: 0 };
-    const out = { added: 0, chats: 0 };
+    if (!data || !data.keys) return { added: 0, chats: 0, games: 0 };
+    const out = { added: 0, chats: 0, games: 0 };
+    try {
+      out.games = mergeLibrary(data.keys);
+    } catch (err) {}
     const A = window.PowerplayAccounts;
     const raw = data.keys["powerplay.accounts.v1"];
     if (A && raw) {
@@ -419,7 +467,7 @@
     const data = await fetchBackup();
     if (!data) return null;
     const res = applyBackup(data);
-    if (res.added || res.chats) {
+    if (res.added || res.chats || res.games) {
       if (window.PowerplayApp && window.PowerplayApp.toast) {
         window.PowerplayApp.toast("Brought your workshop back from the automatic backup.", "ok");
       }
@@ -514,7 +562,8 @@
         if (window.PowerplayApp) {
           const people = res.added + (res.added === 1 ? " person" : " people");
           const chats = res.chats + (res.chats === 1 ? " chat" : " chats");
-          window.PowerplayApp.toast("Restored " + people + " and " + chats + ".", "ok");
+          const games = res.games + (res.games === 1 ? " game or edit" : " games or edits");
+          window.PowerplayApp.toast("Restored " + people + ", " + chats + " and " + games + ".", "ok");
         }
         setTimeout(() => window.location.reload(), 800);
       });

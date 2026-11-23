@@ -1,356 +1,176 @@
-/* Keeps the workshop's games safe on GitHub.
-
-   A static page cannot write to a repository by itself, so the owner pastes a
-   fine-grained token once (Contents: read and write, on one repository). The token
-   stays in this browser's localStorage, is sent only to api.github.com and is never
-   displayed again. Every save of the game library or of the manual game edits is
-   committed a few seconds later; an unchanged library is not committed twice. */
+/* The GitHub front door: one panel that drives the workshop's existing automatic backup
+   (assets/autosave.js) so games, edits, people and chats are all saved in the repository,
+   and a reinstall puts them back. The token is stored in this browser only. */
 (function () {
-  const KEY = "powerplay.github.v1";
-  const GAMES = "powerplay.games.v3";
-  const EDITS = "powerplay.playedits.v2";
-  const API = "https://api.github.com";
-  const MAX_CHARS = 900000;
-  const DEFAULTS = { branch: "main", path: "data/games.json" };
+  "use strict";
+
+  const SYNC_KEY = "powerplay.sync.v1";
+  const DEFAULTS = { repo: "higuy14cool/powerplay-workshop", branch: "main", token: "", auto: true, at: 0, ok: null, error: "" };
+
+  const $ = (id) => document.getElementById(id);
 
   function config() {
-    let saved = {};
+    let saved = null;
     try {
-      saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {};
+      const raw = localStorage.getItem(SYNC_KEY);
+      saved = raw ? JSON.parse(raw) : null;
     } catch (err) {
-      saved = {};
+      saved = null;
     }
-    return Object.assign({ owner: "", repo: "", token: "", lastHash: "", lastAt: "", lastError: "" }, DEFAULTS, saved);
-  }
-
-  function writeConfig(next) {
-    const cfg = Object.assign(config(), next);
-    localStorage.setItem(KEY, JSON.stringify(cfg));
-    paint();
+    const cfg = Object.assign({}, DEFAULTS, saved || {});
+    if (typeof cfg.auto !== "boolean") cfg.auto = true;
     return cfg;
   }
 
+  function writeConfig(patch) {
+    const next = Object.assign(config(), patch || {});
+    try {
+      localStorage.setItem(SYNC_KEY, JSON.stringify(next));
+    } catch (err) {}
+    paint();
+    return next;
+  }
+
   const ready = () => {
-    const c = config();
-    return !!(c.owner && c.repo && c.token);
+    const cfg = config();
+    return !!(cfg.token && cfg.repo);
   };
 
-  function hash(text) {
-    let h = 0x811c9dc5;
-    for (let i = 0; i < text.length; i += 1) {
-      h ^= text.charCodeAt(i);
-      h = Math.imul(h, 0x01000193) >>> 0;
-    }
-    return h.toString(16) + "-" + text.length;
+  function splitRepo(repo) {
+    const parts = String(repo || "").split("/").filter(Boolean);
+    return { owner: parts[0] || "", name: parts[1] || "" };
   }
 
-  function b64(text) {
-    const bytes = new TextEncoder().encode(text);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-    }
-    return btoa(binary);
+  function fmt(ms) {
+    if (!ms) return "never";
+    const diff = Math.max(0, Date.now() - ms);
+    if (diff < 60000) return "just now";
+    const min = Math.round(diff / 60000);
+    if (min < 60) return min + " min ago";
+    const hrs = Math.round(min / 60);
+    if (hrs < 24) return hrs + " h ago";
+    return Math.round(hrs / 24) + " d ago";
   }
 
-  function fromB64(text) {
-    const binary = atob(String(text || "").replace(/\s+/g, ""));
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-  }
-
-  function snapshot() {
-    let games = [];
-    let edits = {};
-    try {
-      games = JSON.parse(localStorage.getItem(GAMES) || "[]");
-    } catch (err) {
-      games = [];
-    }
-    try {
-      edits = JSON.parse(localStorage.getItem(EDITS) || "{}");
-    } catch (err) {
-      edits = {};
-    }
-    return { app: "POWERPLAY Workshop", savedAt: new Date().toISOString(), games, edits };
-  }
-
-  function message(res) {
-    if (res.status === 401) return "GitHub refused the token. Make a new one with Contents: read and write, then paste it here.";
-    if (res.status === 403) return "That token may read but not write this repository. Give it Contents: read and write.";
-    if (res.status === 404) return "GitHub cannot find that repository or its branch. Check the owner, repository and branch.";
-    if (res.status === 409 || res.status === 422) return "GitHub had a newer copy of the file. Try again.";
-    if (res.status === 429) return "GitHub asked for a short pause. It will try again.";
-    const detail = res.body && res.body.message ? " (" + res.body.message + ")" : "";
-    return "GitHub answered " + res.status + detail;
-  }
-
-  async function request(path, init) {
+  function stateText() {
     const cfg = config();
-    const options = Object.assign({}, init || {});
-    options.headers = Object.assign(
-      {
-        Accept: "application/vnd.github+json",
-        Authorization: "Bearer " + cfg.token,
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      options.headers || {}
-    );
-    const res = await fetch(API + path, options);
-    let body = null;
-    try {
-      body = res.status === 204 ? null : await res.json();
-    } catch (err) {
-      body = null;
-    }
-    return { ok: res.ok, status: res.status, body };
+    if (!cfg.token) return "Backup is off. Saved in this browser only — add a token and an uninstall changes nothing.";
+    if (cfg.ok === false) return "Backup failed: " + (cfg.error || "unknown reason") + " — your work is still in this browser.";
+    if (cfg.at) return "Saved to " + cfg.repo + " " + fmt(cfg.at) + " — games, edits, people and chats are safe.";
+    return "Ready to save to " + cfg.repo + ".";
   }
 
-  const contentsPath = (cfg) =>
-    "/repos/" + encodeURIComponent(cfg.owner) + "/" + encodeURIComponent(cfg.repo) +
-    "/contents/" + String(cfg.path).split("/").map(encodeURIComponent).join("/");
-
-  function tell(text, state) {
-    if (window.PowerplayApp && window.PowerplayApp.toast) window.PowerplayApp.toast(text, state);
-    console.info("POWERPLAY GitHub:", text);
-  }
-
-  let busy = false;
-  let queued = false;
-  let timer = 0;
-
-  async function push(reason) {
-    if (!ready()) {
-      paint();
-      return false;
-    }
-    if (busy) {
-      queued = true;
-      return false;
-    }
-    busy = true;
-    paint("saving");
-    try {
-      const cfg = config();
-      const data = snapshot();
-      const text = JSON.stringify(data, null, 2);
-      const print = hash(JSON.stringify({ games: data.games, edits: data.edits }));
-      if (text.length > MAX_CHARS) {
-        throw new Error("The games are too big for one GitHub file (" + Math.round(text.length / 1024) + " KB); split the largest game first.");
-      }
-      if (reason === "auto" && print === cfg.lastHash) return true;
-      const url = contentsPath(cfg);
-      const head = await request(url + "?ref=" + encodeURIComponent(cfg.branch), { method: "GET" });
-      let sha = null;
-      if (head.ok && head.body && head.body.sha) sha = head.body.sha;
-      else if (head.status !== 404) throw new Error(message(head));
-
-      const commit = {
-        message: "POWERPLAY: save games " + new Date().toISOString().slice(0, 16).replace("T", " "),
-        content: b64(text),
-        branch: cfg.branch,
-      };
-      if (sha) commit.sha = sha;
-      const send = () =>
-        request(url, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(commit),
-        });
-
-      let res = await send();
-      if (res.status === 409 || res.status === 422) {
-        const again = await request(url + "?ref=" + encodeURIComponent(cfg.branch), { method: "GET" });
-        if (again.ok && again.body && again.body.sha) {
-          commit.sha = again.body.sha;
-          res = await send();
-        }
-      }
-      if (!res.ok) throw new Error(message(res));
-      writeConfig({ lastHash: print, lastAt: new Date().toISOString(), lastError: "" });
-      tell("Games saved to GitHub", "ok");
-      return true;
-    } catch (err) {
-      const text = String((err && err.message) || err);
-      writeConfig({ lastError: text });
-      tell("GitHub save failed — " + text, "error");
-      return false;
-    } finally {
-      busy = false;
-      paint();
-      if (queued) {
-        queued = false;
-        schedule();
-      }
-    }
-  }
-
-  async function pull() {
-    if (!ready()) {
-      paint();
-      return false;
-    }
-    paint("saving");
-    try {
-      const cfg = config();
-      const url = contentsPath(cfg);
-      const res = await request(url + "?ref=" + encodeURIComponent(cfg.branch), { method: "GET" });
-      if (!res.ok) throw new Error(message(res));
-      const data = JSON.parse(fromB64(res.body.content));
-      if (!data || !Array.isArray(data.games)) throw new Error("That file is not a POWERPLAY game file.");
-      localStorage.setItem(GAMES, JSON.stringify(data.games));
-      if (data.edits && typeof data.edits === "object") {
-        localStorage.setItem(EDITS, JSON.stringify(data.edits));
-      }
-      writeConfig({
-        lastHash: hash(JSON.stringify({ games: data.games, edits: data.edits || {} })),
-        lastAt: new Date().toISOString(),
-        lastError: "",
-      });
-      tell("Restored " + data.games.length + " game(s) from GitHub", "ok");
-      return true;
-    } catch (err) {
-      const text = String((err && err.message) || err);
-      writeConfig({ lastError: text });
-      tell("GitHub restore failed — " + text, "error");
-      return false;
-    } finally {
-      paint();
-    }
-  }
-
-  function schedule() {
-    if (!ready()) return;
-    clearTimeout(timer);
-    timer = setTimeout(() => push("auto"), 4000);
-  }
-
-  function when(iso) {
-    if (!iso) return "never";
-    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    if (mins < 1) return "a moment ago";
-    if (mins < 60) return mins + " min ago";
-    return new Date(iso).toLocaleString();
-  }
-
-  function paint(state) {
-    const chip = document.getElementById("ghChip");
-    const label = document.getElementById("ghChipLabel");
-    const line = document.getElementById("ghState");
+  function paint() {
     const cfg = config();
-    const on = !!(cfg.owner && cfg.repo && cfg.token);
-    if (label) label.textContent = state === "saving" ? "GitHub · saving…" : on ? "GitHub · on" : "GitHub · off";
-    if (chip) chip.dataset.state = state || (on ? "on" : "off");
-    if (!line) return;
-    if (state === "saving") {
-      line.textContent = "Talking to GitHub…";
+    const chip = $("ghChip");
+    const label = $("ghChipLabel");
+    const on = ready();
+    if (chip) chip.dataset.state = !on ? "off" : cfg.ok === false ? "bad" : "on";
+    if (label) label.textContent = "GitHub · " + (!on ? "off" : cfg.ok === false ? "failed" : "on");
+    const line = $("ghState");
+    if (line) line.textContent = stateText();
+
+    const parts = splitRepo(cfg.repo);
+    const set = (id, value) => {
+      const el = $(id);
+      if (el && document.activeElement !== el) el.value = value;
+    };
+    set("ghOwner", parts.owner);
+    set("ghRepo", parts.name);
+    set("ghBranch", cfg.branch || "main");
+    const save = $("ghSave");
+    if (save) save.textContent = on ? "Update backup" : "Turn on backup";
+    const push = $("ghPush");
+    if (push) push.disabled = !on;
+  }
+
+  function toast(text, kind) {
+    if (window.PowerplayApp && window.PowerplayApp.toast) window.PowerplayApp.toast(text, kind || "ok");
+  }
+
+  async function run(options) {
+    const A = window.PowerplayAutoSave;
+    if (!A || !A.syncNow) return { ok: false, error: "Backup is not available on this page." };
+    paint();
+    const res = await A.syncNow(options || { manual: true });
+    paint();
+    return res;
+  }
+
+  function save() {
+    const owner = ($("ghOwner").value || "").trim();
+    const name = ($("ghRepo").value || "").trim();
+    const branch = ($("ghBranch").value || "").trim() || "main";
+    const token = ($("ghToken").value || "").trim();
+
+    if (!owner || !name) {
+      toast("Add the GitHub owner and repository.", "err");
       return;
     }
-    if (!on) {
-      line.textContent = "No token yet, so your games live only in this browser. Add one below and they back up to GitHub on every save.";
+    if (!/^[A-Za-z0-9_.-]+$/.test(owner) || !/^[A-Za-z0-9_.-]+$/.test(name)) {
+      toast("That repository name has characters GitHub does not allow.", "err");
       return;
     }
-    let games = 0;
-    try {
-      games = (JSON.parse(localStorage.getItem(GAMES) || "[]") || []).length;
-    } catch (err) {
-      games = 0;
+    if (!token && !config().token) {
+      toast("Paste a fine-grained GitHub token with Contents: read and write.", "err");
+      return;
     }
-    line.textContent = cfg.lastError
-      ? "Last try: " + cfg.lastError
-      : "Backing up to " + cfg.owner + "/" + cfg.repo + " (" + cfg.path + ", " + cfg.branch + ") · " + games + " game(s) · last save " + when(cfg.lastAt) + ".";
+    writeConfig({ repo: owner + "/" + name, branch: branch, token: token || config().token, auto: true });
+    const field = $("ghToken");
+    if (field) field.value = "";
+    run({ manual: true }).then((res) => {
+      toast(res.ok ? "Backup is on — an uninstall changes nothing now." : "Backup problem: " + res.error, res.ok ? "ok" : "err");
+    });
+  }
+
+  async function restore() {
+    if (!window.confirm("Bring the games, people and chats from the GitHub backup into this browser? What is only in this browser is kept, and nothing is ever removed.")) return;
+    const A = window.PowerplayAutoSave;
+    if (!A || !A.fetchBackup || !A.applyBackup) {
+      toast("Restore is not available on this page.", "err");
+      return;
+    }
+    const data = await A.fetchBackup();
+    if (!data) {
+      toast("No backup found on GitHub yet — turn backup on and save once.", "err");
+      return;
+    }
+    const res = A.applyBackup(data);
+    toast("Restored " + res.added + (res.added === 1 ? " person" : " people") + ", " + res.chats + (res.chats === 1 ? " chat" : " chats") + " and " + (res.games || 0) + " games or edits.", "ok");
+    setTimeout(() => window.location.reload(), 900);
   }
 
   function bind() {
-    const chip = document.getElementById("ghChip");
-    const modal = document.getElementById("ghModal");
-    if (!chip || !modal) return;
-    const field = (id) => document.getElementById(id);
-    const owner = field("ghOwner");
-    const repo = field("ghRepo");
-    const branch = field("ghBranch");
-    const file = field("ghPath");
-    const token = field("ghToken");
-
-    function fill() {
-      const cfg = config();
-      if (owner) owner.value = cfg.owner || "higuy14cool";
-      if (repo) repo.value = cfg.repo || "powerplay-workshop";
-      if (branch) branch.value = cfg.branch || "main";
-      if (file) file.value = cfg.path || DEFAULTS.path;
-      if (token) token.value = "";
+    const chip = $("ghChip");
+    if (chip) chip.addEventListener("click", () => {
       paint();
-    }
-
-    function collect() {
-      return {
-        owner: (owner && owner.value.trim()) || "",
-        repo: (repo && repo.value.trim()) || "",
-        branch: (branch && branch.value.trim()) || "main",
-        path: (file && file.value.trim()) || DEFAULTS.path,
-        token: (token && token.value.trim()) || config().token,
-      };
-    }
-
-    function open() {
-      fill();
       if (window.PowerplayApp && window.PowerplayApp.openModal) window.PowerplayApp.openModal("gh");
-      else modal.hidden = false;
-    }
-
-    chip.addEventListener("click", open);
-    const close = field("ghClose");
-    if (close) close.addEventListener("click", () => {
-      if (window.PowerplayApp && window.PowerplayApp.closeModal) window.PowerplayApp.closeModal();
-      else modal.hidden = true;
     });
-
-    const save = field("ghSave");
-    if (save) {
-      save.addEventListener("click", async () => {
-        const next = collect();
-        const missing = [];
-        if (!next.owner) missing.push("owner");
-        if (!next.repo) missing.push("repository");
-        if (!next.token) missing.push("token");
-        if (missing.length) {
-          tell("Add the " + missing.join(", ") + " first", "error");
-          return;
-        }
-        writeConfig(next);
-        if (token) token.value = "";
-        tell("GitHub backup is on", "ok");
-        await push("manual");
+    const saveBtn = $("ghSave");
+    if (saveBtn) saveBtn.addEventListener("click", save);
+    const pushBtn = $("ghPush");
+    if (pushBtn) pushBtn.addEventListener("click", () => {
+      run({ manual: true }).then((res) => {
+        toast(res.ok ? "Saved to GitHub just now." : "Backup problem: " + res.error, res.ok ? "ok" : "err");
       });
-    }
-
-    const now = field("ghPush");
-    if (now) now.addEventListener("click", () => push("manual"));
-    const restore = field("ghPull");
-    if (restore) {
-      restore.addEventListener("click", async () => {
-        const ok = window.confirm(
-          "Replace the games in this browser with the copy saved on GitHub? Anything only in this browser is replaced."
-        );
-        if (ok) await pull();
-      });
-    }
+    });
+    const pullBtn = $("ghPull");
+    if (pullBtn) pullBtn.addEventListener("click", restore);
+    const modal = $("ghModal");
+    if (modal) modal.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target && event.target.tagName === "INPUT") {
+        event.preventDefault();
+        save();
+      }
+    });
+    paint();
+    setInterval(paint, 4000);
+    window.addEventListener("focus", paint);
+    document.addEventListener("visibilitychange", paint);
   }
-
-  window.addEventListener("powerplay:saved", (ev) => {
-    const key = ev && ev.detail && ev.detail.key;
-    if (key === GAMES || key === EDITS) schedule();
-  });
-
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden || !ready()) return;
-    clearTimeout(timer);
-    push("auto");
-  });
-
-  window.PowerplayGithub = { config, push, pull, ready, paint };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
   else bind();
+
+  window.PowerplayGithub = { config: config, writeConfig: writeConfig, ready: ready, paint: paint, save: save, run: run, restore: restore };
 })();
