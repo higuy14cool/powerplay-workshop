@@ -557,6 +557,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
             <button class="btn btn-ghost" id="accountsRestore" type="button" hidden>Restore from file</button>
             <input id="accountsRestoreInput" type="file" accept=".js,.json,text/javascript,application/json" hidden />
           </div>
+          <p class="hint-small"><strong>He usually needs no file at all.</strong> Whenever you have the workshop open, your people are shared automatically, so he just types his username and passcode on any computer and is in. The file below is only for a computer that stays offline from the workshop for a long time.</p>
           <p class="hint-small">Send that file to your worker. On his computer he presses <strong>Import the account file your admin sent</strong> on the sign-in card and uses the passcode you gave him — no token needed, works even with backup off.</p>
           <h4 class="backup-heading">Automatic backup</h4>
           <p class="backup-state" id="backupState" data-state="local">Saved automatically in this browser.</p>
@@ -737,6 +738,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 <script src="assets/github-sync.js"></script>
   <script src="assets/architect-ui.js"></script>
 <script src="assets/accounts-data.js"></script>
+<script src="assets/board.js"></script>
 <script src="assets/accounts.js"></script>
 <script src="assets/stage.js"></script>
 <script src="assets/app-mode.js"></script>

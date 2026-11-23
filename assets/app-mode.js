@@ -141,7 +141,7 @@
       button.disabled = true;
       button.textContent = "Checking…";
       try {
-        const found = await A.refreshShared();
+        const found = await A.refreshShared({ username: user, passcode: pass });
         if (found) result = A.login(user, pass);
       } finally {
         checking = false;
@@ -159,6 +159,7 @@
     error.hidden = true;
     $("#loginPass").value = "";
     showApp(result.user);
+    if (result.user.role === "admin") A.publishBoard();
     toast(`Signed in as ${result.user.username}`, "ok");
   }
 
@@ -944,8 +945,12 @@
     bindLoginImport();
     $("#navLogout").addEventListener("click", onLogout);
     const user = A.current();
-    if (user) showApp(user);
-    else showLogin();
+    if (user) {
+      showApp(user);
+      /* An admin who was already signed in still republishes, so the board never
+         goes stale just because the tab was left open for a day. */
+      if (user.role === "admin") A.publishBoard();
+    } else showLogin();
   });
 
   window.PowerplayAppMode = { openModal, closeModal, toast, paintMe, applyTheme, refreshScope, renderTeam, refreshLive };

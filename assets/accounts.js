@@ -313,23 +313,83 @@
 
   /* A worker signs in the moment the admin publishes: ask GitHub Pages for the
      published people (bypassing the ten-minute asset cache) and merge them in. */
-  async function refreshShared() {
+  async function refreshShared(creds) {
+    let added = false;
     try {
       const res = await fetch("assets/accounts-data.js?t=" + Date.now(), { cache: "no-store" });
-      if (!res.ok) return false;
-      const text = await res.text();
-      const data = new Function("window", text + "\nreturn window.PowerplaySharedAccounts;")(
-        { PowerplaySharedAccounts: null }
-      );
-      if (!data || !Array.isArray(data.users) || !data.users.length) return false;
-      const before = state.users.length;
-      window.PowerplaySharedAccounts = data;
-      mergeSharedAccounts();
-      reload();
-      return state.users.length > before;
+      if (res.ok) {
+        const text = await res.text();
+        const data = new Function("window", text + "\nreturn window.PowerplaySharedAccounts;")(
+          { PowerplaySharedAccounts: null }
+        );
+        if (data && Array.isArray(data.users) && data.users.length) {
+          const before = state.users.length;
+          window.PowerplaySharedAccounts = data;
+          mergeSharedAccounts();
+          reload();
+          added = state.users.length > before;
+        }
+      }
     } catch (err) {
-      return false;
+      /* no published file: the board may still know him */
     }
+    if (await fromBoard(creds)) added = true;
+    return added;
+  }
+
+  /* The admin's workshop leaves the people on a public board (see board.js).
+     Only a SHA-256 of username:passcode travels, so the typed passcode is what
+     proves the account, and it is kept locally exactly as it was typed. */
+  async function fromBoard(creds) {
+    const board = window.PowerplayBoard;
+    if (!board || !creds) return false;
+    const name = String(creds.username || "").trim();
+    const pass = String(creds.passcode || "").trim();
+    if (!name || !pass) return false;
+    const data = await board.people();
+    if (!data) return false;
+    const digest = await board.hash(name, pass);
+    if (!digest) return false;
+    const hit = data.people.find(
+      (p) => String(p.username).trim().toLowerCase() === name.toLowerCase() && p.hash === digest
+    );
+    if (!hit) return false;
+    const found = state.users.find((u) => String(u.username || "").trim().toLowerCase() === name.toLowerCase());
+    if (found) {
+      found.passcode = pass;
+      found.passcodeOverridden = true;
+    } else {
+      state.users.push({
+        id: hit.id || uid("u"),
+        username: String(hit.username).trim(),
+        passcode: pass,
+        role: hit.role === "admin" ? "admin" : "worker",
+        avatar: null,
+        color: AVATAR_COLORS[state.users.length % AVATAR_COLORS.length],
+        assigned: Array.isArray(hit.assigned) ? hit.assigned.slice() : [],
+        theme: "lime",
+        customAccent: null,
+      });
+    }
+    save();
+    reload();
+    return true;
+  }
+
+  /* Keep the board current: an admin publishes on every change and whenever the
+     workshop opens, so a worker's sign in never waits for a file. */
+  let boardTimer = null;
+
+  function publishBoard() {
+    const board = window.PowerplayBoard;
+    if (!board) return;
+    const me = current();
+    if (!me || me.role !== "admin") return;
+    if (boardTimer) clearTimeout(boardTimer);
+    boardTimer = setTimeout(() => {
+      boardTimer = null;
+      board.publish(state.users);
+    }, 1200);
   }
 
   function login(username, passcode) {
@@ -343,9 +403,9 @@
       return {
         ok: false,
         error:
-          "That username and passcode don't match in this browser, and no published account matches either. " +
-          "If the admin has not pressed Turn on backup yet, this is why; otherwise ask them for the account file and " +
-          "press “Import the account file” below.",
+          "That username and passcode don't match anywhere yet. If the admin made this account a moment ago, " +
+          "ask them to open the workshop once so it is shared; if it still fails, have them save an account file " +
+          "and press “Import the account file” below.",
       };
     }
     state.currentUserId = user.id;
@@ -381,6 +441,7 @@
     };
     state.users.push(user);
     save();
+    publishBoard();
     return { ok: true, user };
   }
 
@@ -398,6 +459,7 @@
       if (g.assignedTo) g.assignedTo = g.assignedTo.filter((uid2) => uid2 !== id);
     });
     save();
+    publishBoard();
     return { ok: true };
   }
 
@@ -475,6 +537,7 @@
     }
     user.assigned = (user.assigned || []).concat(gameId);
     save();
+    publishBoard();
     return { ok: true, user, game };
   }
 
@@ -484,6 +547,7 @@
     if (!user) return { ok: false, error: "No such person." };
     user.assigned = (user.assigned || []).filter((g) => g !== gameId);
     save();
+    publishBoard();
     return { ok: true };
   }
 
@@ -644,6 +708,7 @@
     user.username = name;
     user.passcode = pass;
     save();
+    publishBoard();
     return { ok: true, user };
   }
 
@@ -694,6 +759,7 @@
     assignedTo,
     login,
     refreshShared,
+    publishBoard,
     logout,
     visibleScopes,
     createChat,
