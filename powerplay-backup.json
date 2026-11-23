@@ -1,7 +1,7 @@
 {
   "v": 1,
   "app": "POWERPLAY Workshop",
-  "at": "2026-11-23T16:50:14.126Z",
+  "at": "2026-11-23T18:24:25.680Z",
   "keys": {
     "powerplay.accounts.v1": "{\"users\":[{\"assigned\":[],\"theme\":\"lime\",\"customAccent\":null,\"color\":\"#b6ff3d\",\"avatar\":null,\"id\":\"u-admin\",\"username\":\"higuy14/cool\",\"passcode\":\"favgame1\",\"role\":\"admin\"},{\"assigned\":[],\"theme\":\"cyan\",\"customAccent\":null,\"color\":\"#a78bfa\",\"avatar\":null,\"id\":\"u-w6jnoy0\",\"username\":\"sharifassaad@gmail.com\",\"passcode\":\"3137709004\",\"role\":\"worker\"}],\"messages\":[{\"id\":\"m-xnxvoid\",\"scope\":\"group\",\"from\":\"u-admin\",\"text\":\"Welcome to the workshop. Assign a game to a worker and it lands on their home screen.\",\"at\":1795021495998},{\"id\":\"m-uuecnja\",\"scope\":\"group\",\"from\":\"u-admin\",\"text\":\"sup\",\"at\":1795449700275},{\"id\":\"m-mov5h5h\",\"scope\":\"group\",\"from\":\"u-admin\",\"text\":\"please ignore the github thing. ill tell u if u need to do something with it\",\"at\":1795451914350},{\"id\":\"m-bw0rb9y\",\"scope\":\"dm:u-admin|u-w6jnoy0\",\"from\":\"u-admin\",\"text\":\"Welcome to the workshop.\",\"at\":1795451943282}],\"currentUserId\":\"u-admin\",\"chats\":[]}",
     "powerplay.ai.v1": "{\"provider\":\"free\",\"baseUrl\":\"https://text.pollinations.ai/openai\",\"model\":\"openai\",\"key\":\"\"}",
