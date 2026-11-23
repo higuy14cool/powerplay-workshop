@@ -23,6 +23,43 @@
     return prefix + "-" + Math.random().toString(36).slice(2, 9);
   }
 
+  /* A person keeps the same id on every device: the id the published list gives
+     them, or one derived from the username. Chats and direct messages point at
+     ids, so a chat typed on the computer finds its author on the iPad. */
+  function stableId(name) {
+    const text = String(name || "").trim().toLowerCase();
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return "u-" + (h >>> 0).toString(36);
+  }
+
+  /* An id from a file or the board wins over a made-up one made here; every
+     reference moves with it. */
+  function remapUser(oldId, newId) {
+    if (!oldId || !newId || oldId === newId) return false;
+    if (state.users.some((u) => u.id === newId)) return false;
+    const user = state.users.find((u) => u.id === oldId);
+    if (!user) return false;
+    user.id = newId;
+    if (state.currentUserId === oldId) state.currentUserId = newId;
+    (state.messages || []).forEach((m) => {
+      if (m.from === oldId) m.from = newId;
+      if (m.scope && m.scope.indexOf(oldId) >= 0) m.scope = m.scope.split(oldId).join(newId);
+    });
+    (state.chats || []).forEach((c) => {
+      c.members = (c.members || []).map((id) => (id === oldId ? newId : id));
+    });
+    try {
+      gamesForStorage().forEach((g) => {
+        if (Array.isArray(g.assignedTo)) g.assignedTo = g.assignedTo.map((id) => (id === oldId ? newId : id));
+      });
+    } catch (err) {}
+    return true;
+  }
+
   function seed() {
     return {
       users: [
@@ -79,6 +116,7 @@
       const role = entry.role === "admin" ? "admin" : "worker";
       const pass = String(entry.passcode).trim();
       const found = state.users.find((u) => String(u.username || "").trim().toLowerCase() === key);
+      if (found && entry.id && found.id !== entry.id && remapUser(found.id, entry.id)) changed = true;
       if (!found) {
         state.users.push({
           id: entry.id || uid("u"),
@@ -360,7 +398,7 @@
       found.passcodeOverridden = true;
     } else {
       state.users.push({
-        id: hit.id || uid("u"),
+        id: hit.id || stableId(name),
         username: String(hit.username).trim(),
         passcode: pass,
         role: hit.role === "admin" ? "admin" : "worker",
@@ -429,7 +467,7 @@
       return { ok: false, error: "That username is taken." };
     }
     const user = {
-      id: uid("u"),
+      id: stableId(name),
       username: name,
       passcode: pass,
       role: role === "admin" ? "admin" : "worker",
@@ -642,6 +680,65 @@
     return { ok: true, message: msg };
   }
 
+  /* ---------- carrying chats to the other devices ---------- */
+  /* Only chats travel: the people and their passcodes stay in the published file. */
+  function chatBundle() {
+    return {
+      v: 1,
+      chats: state.chats || [],
+      messages: state.messages || [],
+    };
+  }
+
+  /* Messages are merged, never replaced: a message written on each device at the
+     same time both survive, an edit wins by its time, and a message the other
+     device deleted is dropped here too. Messages typed here after the snapshot
+     was taken are always kept. */
+  function receiveChats(bundle, at) {
+    if (!bundle || !Array.isArray(bundle.messages)) return false;
+    const when = Number(at || 0);
+    const me = current();
+    const incoming = new Map();
+    bundle.messages.forEach((m) => {
+      /* a worker's device keeps only the chats that worker may open */
+      if (!m || !m.id || !me || !canSeeScope(m.scope, me)) return;
+      incoming.set(m.id, m);
+    });
+    let changed = false;
+    const next = [];
+    state.messages.forEach((m) => {
+      const remote = incoming.get(m.id);
+      if (remote) {
+        incoming.delete(m.id);
+        const pick = (remote.editedAt || 0) > (m.editedAt || 0) ? remote : m;
+        if (pick !== m) changed = true;
+        next.push(pick);
+      } else if ((m.at || 0) > when) {
+        next.push(m);
+      } else {
+        changed = true;
+      }
+    });
+    incoming.forEach((m) => {
+      next.push(m);
+      changed = true;
+    });
+    (Array.isArray(bundle.chats) ? bundle.chats : []).forEach((c) => {
+      if (!c || !c.id) return;
+      if (!(state.chats || []).some((x) => x.id === c.id)) {
+        if (!Array.isArray(state.chats)) state.chats = [];
+        state.chats.push(c);
+        changed = true;
+      }
+    });
+    if (!changed) return false;
+    next.sort((a, b) => (a.at || 0) - (b.at || 0));
+    state.messages = next;
+    save();
+    if (window.PowerplaySync && window.PowerplaySync.refresh) window.PowerplaySync.refresh(KEY);
+    return true;
+  }
+
   function findMessage(id) {
     return state.messages.find((m) => m.id === id) || null;
   }
@@ -760,6 +857,8 @@
     login,
     refreshShared,
     publishBoard,
+    chatBundle,
+    receiveChats,
     logout,
     visibleScopes,
     createChat,

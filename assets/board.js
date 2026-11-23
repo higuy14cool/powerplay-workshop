@@ -27,6 +27,7 @@
 
   function entry(user, digest) {
     return {
+      id: user.id,
       username: String(user.username || "").trim(),
       role: user.role === "admin" ? "admin" : "worker",
       assigned: Array.isArray(user.assigned) ? user.assigned.slice() : [],
