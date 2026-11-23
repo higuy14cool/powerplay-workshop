@@ -657,6 +657,12 @@ a.btn{text-decoration:none}
 .ai-engine{cursor:pointer;font-family:var(--mono);transition:border-color .2s,background .2s,color .2s}
 .ai-engine:hover{border-color:rgba(184,255,61,.55);color:#eaffc7}
 .ai-engine:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.engine-chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
+#ghChip[data-state="off"]{border-color:rgba(255,255,255,.16);background:rgba(255,255,255,.04);color:var(--muted)}
+#ghChip[data-state="off"] i{background:#8b93a3;box-shadow:none}
+#ghChip[data-state="saving"]{border-color:rgba(255,214,102,.5);color:#ffe7a3}
+.gh-row{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:10px}
+@media (max-width:520px){.gh-row{grid-template-columns:1fr}}
 .ai-card{max-width:520px}
 .ai-card .field{margin-bottom:10px}
 .typing-note{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.04em}

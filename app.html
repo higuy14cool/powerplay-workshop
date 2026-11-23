@@ -154,7 +154,10 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <p class="eyebrow">// 02 — app architect</p>
         <h2>Describe it. We'll architect it.</h2>
       </div>
-      <button class="ai-badge ai-engine" id="aiEngine" type="button"><i></i> <span id="aiEngineLabel">Real AI</span></button>
+      <div class="engine-chips">
+        <button class="ai-badge ai-engine" id="aiEngine" type="button"><i></i> <span id="aiEngineLabel">Real AI</span></button>
+        <button class="ai-badge ai-engine" id="ghChip" type="button" data-state="off" title="Save your games to GitHub automatically"><i></i> <span id="ghChipLabel">GitHub · off</span></button>
+      </div>
     </div>
 
     <div class="architect-grid">
@@ -416,6 +419,39 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     <div class="form-actions">
       <button class="btn btn-ghost" type="button" id="aiTest">Test it</button>
       <button class="btn btn-lime" type="button" id="aiSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="ghModal" role="dialog" aria-modal="true" aria-labelledby="ghModalTitle" hidden>
+  <div class="modal-backdrop" data-close="gh"></div>
+  <div class="modal-card ai-card">
+    <p class="eyebrow">// backup</p>
+    <h3 id="ghModalTitle">Save your games to GitHub</h3>
+    <p class="confirm-text">Every game you make and every manual edit is copied to a file in your repository a few seconds after it is saved, so nothing is lost when this browser is cleared or the app is reinstalled.</p>
+    <label class="field"><span>Owner</span>
+      <input id="ghOwner" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="higuy14cool">
+    </label>
+    <label class="field"><span>Repository</span>
+      <input id="ghRepo" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="powerplay-workshop">
+    </label>
+    <div class="gh-row">
+      <label class="field"><span>Branch</span>
+        <input id="ghBranch" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="main">
+      </label>
+      <label class="field"><span>File</span>
+        <input id="ghPath" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="data/games.json">
+      </label>
+    </div>
+    <label class="field"><span>Fine-grained token</span>
+      <input id="ghToken" type="password" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="github_pat_…">
+    </label>
+    <p class="hint-small">Make it on GitHub: Settings → Developer settings → Fine-grained tokens → only this repository → Contents: read and write. It stays in this browser, goes only to api.github.com, and is never shown again.</p>
+    <p class="hint-small" id="ghState"></p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" type="button" id="ghPull">Restore from GitHub</button>
+      <button class="btn btn-ghost" type="button" id="ghPush">Save now</button>
+      <button class="btn btn-lime" type="button" id="ghSave">Turn on backup</button>
     </div>
   </div>
 </div>
@@ -695,6 +731,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 <script src="assets/architect.js"></script>
 <script src="assets/architect-chats.js"></script>
 <script src="assets/ai.js"></script>
+<script src="assets/github-sync.js"></script>
   <script src="assets/architect-ui.js"></script>
 <script src="assets/accounts-data.js"></script>
 <script src="assets/accounts.js"></script>
