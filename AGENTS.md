@@ -44,3 +44,9 @@ function. A copy opened on localhost/file:// syncs on the `<TOPIC>-dev` channel,
 trial run can never touch the workshop's real data. Regression suites:
 `/tmp/pp_sync_noloss.py` (nothing lost + restore + named removal),
 `/tmp/pp_restore_check.py`, `/tmp/pp_sync_data.py`.
+
+Chats are read by their owners, watched by the admin: `isParticipant` decides whether a
+scope is yours, `sendMessage` refuses to post into someone else's chat, and `addComment`
+lets an admin leave a marked `{comment:true}` message in a chat they are only watching.
+Never post from a watched chat and never let the actor be anyone but the typed-in person.
+Suite: `/tmp/pp_watch_comment.py`.
