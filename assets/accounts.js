@@ -632,18 +632,29 @@
       .map((c) => ({ id: "chat:" + c.id, label: c.name, kind: "chat", chat: c, watch: c.members.indexOf(user.id) < 0 }));
   }
 
+  /* A direct chat is not made automatically: it appears in the list only once the
+     two people have actually written in it. Anyone who wants to start talking to
+     another person makes the chat with "+ New chat". */
+  function hasMessages(scopeId) {
+    return (state.messages || []).some((m) => m.scope === scopeId);
+  }
+
   function visibleScopes(user = current()) {
     if (!user) return [];
     const head = [{ id: "group", label: "Announcements", kind: "group" }].concat(chatScopes(user));
     if (user.role === "admin") {
       const workers = state.users.filter((u) => u.role === "worker");
-      const mine = workers.map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }));
-      /* chats the workers have with each other, read-only */
+      const mine = workers
+        .map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
+        .filter((s) => hasMessages(s.id));
+      /* chats the workers have with each other, read-only, once they exist */
       const watched = [];
       for (let i = 0; i < workers.length; i++) {
         for (let j = i + 1; j < workers.length; j++) {
+          const id = dmScope(workers[i].id, workers[j].id);
+          if (!hasMessages(id)) continue;
           watched.push({
-            id: dmScope(workers[i].id, workers[j].id),
+            id,
             label: workers[i].username + " ↔ " + workers[j].username,
             kind: "dm",
             watch: true,
@@ -658,6 +669,7 @@
       state.users
         .filter((u) => u.id !== user.id)
         .map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }))
+        .filter((s) => hasMessages(s.id))
     );
   }
 
