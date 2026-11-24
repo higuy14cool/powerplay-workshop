@@ -52,8 +52,23 @@
     if (!modal) return;
     modal.hidden = false;
     document.body.classList.add("locked");
+    if (name === "workers") scrollChatToEnd();
     const first = modal.querySelector("input, select, textarea, button");
     if (first) requestAnimationFrame(() => first.focus({ preventScroll: true }));
+  }
+
+  /* Land on the newest message whenever a chat is shown. The log is often
+     rendered while its modal is still hidden, when scrollHeight reads 0, so
+     wait for a frame after it is visible. */
+  function scrollChatToEnd() {
+    const log = $("#chatThread");
+    if (!log) return;
+    requestAnimationFrame(() => {
+      log.scrollTop = log.scrollHeight;
+      requestAnimationFrame(() => {
+        log.scrollTop = log.scrollHeight;
+      });
+    });
   }
 
   function closeModal(name) {
@@ -570,6 +585,9 @@
         img.src = m.image.src;
         img.alt = m.image.name || "picture";
         img.loading = "lazy";
+        img.addEventListener("load", () => {
+          if (log.scrollHeight - log.scrollTop - log.clientHeight < 80) scrollChatToEnd();
+        });
         link.appendChild(img);
         bubble.appendChild(link);
       }
@@ -616,6 +634,7 @@
       log.appendChild(bubble);
     });
     log.scrollTop = log.scrollHeight;
+    scrollChatToEnd();
   }
 
   /* ---------- forward a message to another chat ---------- */
