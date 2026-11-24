@@ -634,7 +634,7 @@
 
   function visibleScopes(user = current()) {
     if (!user) return [];
-    const head = [{ id: "group", label: "Group chat", kind: "group" }].concat(chatScopes(user));
+    const head = [{ id: "group", label: "Announcements", kind: "group" }].concat(chatScopes(user));
     if (user.role === "admin") {
       const workers = state.users.filter((u) => u.role === "worker");
       const mine = workers.map((u) => ({ id: dmScope(user.id, u.id), label: u.username, kind: "dm", user: u }));

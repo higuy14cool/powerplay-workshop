@@ -66,13 +66,13 @@ body:not(.is-locked) .login-screen{display:none}
 .avatar-lg{width:72px;height:72px;font-size:24px}
 
 /* ---------- team modals ---------- */
-.wide-card{max-width:none;width:min(1150px,calc(100vw - 60px))}
+.wide-card{max-width:none;width:min(1150px,calc(100vw - 60px));max-height:calc(100vh - 40px);overflow:auto}
 .wide-card .modal-head{padding:24px 26px 0}
 .wide-card h3,.modal-card h3{margin:2px 0 0;font-size:20px}
 .modal-card .stack,.modal-card .theme-block{padding:0 26px 26px}
 .modal-card .stack{margin-top:18px}
 .workers-body{
-  display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1.45fr);gap:26px;
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:26px;
   padding:16px 24px 20px;min-height:min(40vh,380px);
 }
 .workers-col{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -107,7 +107,7 @@ body:not(.is-locked) .login-screen{display:none}
 }
 .scope-chip.is-active{background:var(--lime-soft);border-color:rgba(184,255,61,.45);color:var(--lime)}
 .chat-log{
-  flex:0 0 auto;height:clamp(140px,19vh,200px);overflow:auto;display:flex;flex-direction:column;gap:8px;
+  flex:0 0 auto;height:clamp(240px,calc(100vh - 600px),520px);overflow:auto;display:flex;flex-direction:column;gap:8px;
   padding:14px;border-radius:14px;background:#080a11;border:1px solid var(--line);
 }
 .msg{max-width:72%;padding:8px 11px;border-radius:14px;background:#12151f;border:1px solid var(--line);font-size:13.5px;line-height:1.45}
@@ -170,7 +170,7 @@ body:not(.is-locked) .login-screen{display:none}
 @media (max-width:860px){
   .wide-card{width:calc(100vw - 20px)}
   .workers-body{grid-template-columns:1fr;min-height:0;max-height:82vh;overflow:auto;padding:16px 18px 22px}
-  .chat-log{height:clamp(140px,24vh,210px)}
+  .chat-log{height:clamp(260px,40vh,400px)}
   #chatThread .msg-actions{opacity:1}
   /* on a phone the field gets its own row above the buttons */
   #chatThread .msg-edit{grid-template-columns:1fr 1fr}
