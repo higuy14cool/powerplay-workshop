@@ -582,6 +582,14 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
         <div class="chat-head">
           <div class="chat-head-top">
             <h4 id="chatTitle">Announcements</h4>
+            <div class="chat-actions" id="chatActions" hidden>
+              <button class="icon-btn" id="chatRenameBtn" type="button" title="Rename this chat" aria-label="Rename this chat" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14.5 6.5l3 3" stroke="currentColor" stroke-width="1.7"/></svg>
+              </button>
+              <button class="icon-btn" id="chatDeleteBtn" type="button" title="Delete this chat" aria-label="Delete this chat" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
             <div class="chat-calls" id="chatCallBtns" hidden></div>
           </div>
           <div class="scope-chips" id="chatScopes"></div>

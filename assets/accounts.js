@@ -100,6 +100,7 @@
       currentUserId: null,
       chats: [],   // named chats that several people share, made with "+ New chat"
       deleted: [], // ids of messages someone removed, so a removal travels too
+      deletedScopes: [], // chats someone deleted, so a deletion travels too
     };
   }
 
@@ -241,8 +242,9 @@
     if (!parsed || typeof parsed !== "object") return 0;
     let added = 0;
     const known = new Set(state.messages.map((m) => m.id));
+    const goneScopes = new Set((state.deletedScopes || []).map((d) => d && d.id).filter(Boolean));
     (Array.isArray(parsed.messages) ? parsed.messages : []).forEach((m) => {
-      if (!m || !m.id || !m.scope || known.has(m.id)) return;
+      if (!m || !m.id || !m.scope || known.has(m.id) || goneScopes.has(String(m.scope))) return;
       const row = {
         id: String(m.id),
         scope: String(m.scope),
@@ -264,6 +266,7 @@
     const knownChats = new Set(state.chats.map((c) => c.id));
     (Array.isArray(parsed.chats) ? parsed.chats : []).forEach((c) => {
       if (!c || !c.id || knownChats.has(c.id) || !Array.isArray(c.members)) return;
+      if (goneScopes.has("chat:" + c.id)) return;
       const members = c.members.filter((id) => state.users.some((u) => u.id === id));
       if (!members.length) return;
       state.chats.push({
@@ -349,8 +352,13 @@
           members: c.members.filter((id) => known.has(id)),
           createdBy: c.createdBy || null,
           at: Number(c.at) || Date.now(),
+          renamedAt: Number(c.renamedAt) || 0,
         }))
         .filter((c) => c.members.length);
+      data.deletedScopes = (Array.isArray(data.deletedScopes) ? data.deletedScopes : [])
+        .filter((d) => d && d.id)
+        .map((d) => ({ id: String(d.id), at: Number(d.at) || Date.now() }))
+        .slice(-300);
       data.users = data.users.map((u) => ({
         assigned: Array.isArray(u.assigned) ? u.assigned : [],
         theme: u.theme || "lime",
@@ -617,6 +625,24 @@
     return { ok: true };
   }
 
+  /* An admin can hand admin rights to a worker, or take them away again. Never
+     for themselves, so the workshop always keeps the admin who is signed in. */
+  function setRole(userId, role) {
+    if (!isAdmin()) return { ok: false, error: "Only admins can change a role." };
+    const next = role === "admin" ? "admin" : "worker";
+    const target = state.users.find((u) => u.id === userId);
+    if (!target) return { ok: false, error: "No such person." };
+    if (target.id === state.currentUserId) return { ok: false, error: "You can't change your own role." };
+    if (target.role === "admin" && next === "worker" && state.users.filter((u) => u.role === "admin").length < 2) {
+      return { ok: false, error: "The workshop needs at least one admin." };
+    }
+    if (target.role === next) return { ok: true, user: target };
+    target.role = next;
+    save();
+    publishBoard();
+    return { ok: true, user: target };
+  }
+
   function users() {
     return state.users.slice();
   }
@@ -821,6 +847,58 @@
     return (state.chats || []).find((c) => c.id === id) || null;
   }
 
+  /* Who may rename or delete a chat: the people in a named chat (any admin too),
+     never Announcements, and never a chat that only belongs to one pair. */
+  function canRenameChat(scopeId, user = current()) {
+    if (!user) return false;
+    const id = String(scopeId || "");
+    if (id.indexOf("chat:") !== 0) return false;
+    const chat = chatFor(id);
+    if (!chat) return false;
+    return user.role === "admin" || chat.members.indexOf(user.id) >= 0;
+  }
+
+  /* Deleting takes the chat away for everyone in it. A named chat goes when the
+     person who made it (or an admin) says so; a direct chat when either of the
+     two people does. */
+  function canDeleteChat(scopeId, user = current()) {
+    if (!user) return false;
+    const id = String(scopeId || "");
+    if (id === "group") return false;
+    if (user.role === "admin") return id.indexOf("chat:") === 0 ? !!chatFor(id) : id.indexOf("dm:") === 0;
+    if (id.indexOf("chat:") === 0) {
+      const chat = chatFor(id);
+      return !!chat && chat.createdBy === user.id;
+    }
+    return id.indexOf("dm:") === 0 && isParticipant(id, user);
+  }
+
+  function renameChat(scopeId, name) {
+    if (!canRenameChat(scopeId)) return { ok: false, error: "Only the people in this chat can rename it." };
+    const chat = chatFor(scopeId);
+    const clean = String(name || "").trim().slice(0, 40);
+    if (!clean) return { ok: false, error: "Give the chat a name." };
+    if (chat.name === clean) return { ok: true, chat };
+    chat.name = clean;
+    chat.renamedAt = Date.now();
+    save();
+    return { ok: true, chat };
+  }
+
+  function deleteChat(scopeId) {
+    const user = current();
+    const id = String(scopeId || "");
+    if (!canDeleteChat(id, user)) return { ok: false, error: "You can't delete this chat." };
+    const chat = chatFor(id);
+    if (!Array.isArray(state.deletedScopes)) state.deletedScopes = [];
+    state.deletedScopes.push({ id, at: Date.now() });
+    state.deletedScopes = state.deletedScopes.slice(-300);
+    if (chat) state.chats = (state.chats || []).filter((c) => c.id !== chat.id);
+    state.messages = state.messages.filter((m) => m.scope !== id);
+    save();
+    return { ok: true };
+  }
+
   function canSeeScope(scopeId, user = current()) {
     return visibleScopes(user).some((s) => s.id === scopeId);
   }
@@ -974,6 +1052,7 @@
       chats: state.chats || [],
       messages: state.messages || [],
       deleted: (state.deleted || []).slice(-300),
+      deletedScopes: (state.deletedScopes || []).slice(-300),
     };
   }
 
@@ -1004,9 +1083,32 @@
         }
       });
     }
+    /* A chat somebody deleted stays deleted here too: its messages are dropped
+       and the chat itself is not brought back by an older copy. */
+    const goneScopes = new Set((state.deletedScopes || []).map((d) => d && d.id).filter(Boolean));
+    if (Array.isArray(bundle.deletedScopes)) {
+      bundle.deletedScopes.forEach((d) => {
+        if (!d || !d.id) return;
+        if (!goneScopes.has(String(d.id))) {
+          goneScopes.add(String(d.id));
+          changed = true;
+        }
+      });
+    }
+    if (goneScopes.size) {
+      if (!Array.isArray(state.deletedScopes)) state.deletedScopes = [];
+      const knownScopes = new Set(state.deletedScopes.map((d) => d && d.id));
+      goneScopes.forEach((id) => {
+        if (!knownScopes.has(id)) state.deletedScopes.push({ id, at: Number(at || Date.now()) });
+      });
+      state.deletedScopes = state.deletedScopes.slice(-300);
+      const before = (state.chats || []).length;
+      state.chats = (state.chats || []).filter((c) => !goneScopes.has("chat:" + c.id));
+      if (state.chats.length !== before) changed = true;
+    }
     const next = [];
     state.messages.forEach((m) => {
-      if (gone.has(m.id)) {
+      if (gone.has(m.id) || goneScopes.has(m.scope)) {
         changed = true;
         return;
       }
@@ -1021,15 +1123,23 @@
       }
     });
     incoming.forEach((m) => {
-      if (gone.has(m.id)) return;
+      if (gone.has(m.id) || goneScopes.has(m.scope)) return;
       next.push(m);
       changed = true;
     });
     (Array.isArray(bundle.chats) ? bundle.chats : []).forEach((c) => {
-      if (!c || !c.id) return;
-      if (!(state.chats || []).some((x) => x.id === c.id)) {
+      if (!c || !c.id || goneScopes.has("chat:" + c.id)) return;
+      const mine = (state.chats || []).find((x) => x.id === c.id);
+      if (!mine) {
         if (!Array.isArray(state.chats)) state.chats = [];
         state.chats.push(c);
+        changed = true;
+        return;
+      }
+      /* The newest rename wins; a device that never renamed it cannot undo one. */
+      if ((c.renamedAt || 0) > (mine.renamedAt || 0) && c.name) {
+        mine.name = String(c.name).slice(0, 40);
+        mine.renamedAt = Number(c.renamedAt) || 0;
         changed = true;
       }
     });
@@ -1163,6 +1273,7 @@
     addPerson,
     importAccounts,
     removePerson,
+    setRole,
     addGame,
     assign,
     unassign,
@@ -1177,6 +1288,10 @@
     visibleScopes,
     createChat,
     chatFor,
+    canRenameChat,
+    canDeleteChat,
+    renameChat,
+    deleteChat,
     fileText,
     mergeBackup,
     canSeeScope,

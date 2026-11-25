@@ -99,8 +99,10 @@ body:not(.is-locked) .login-screen{display:none}
 
 .chat-col{border-left:1px solid var(--line);padding-left:22px}
 .chat-head{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-.chat-head-top{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;flex-wrap:wrap}
-.chat-calls{display:flex;gap:6px;flex-wrap:wrap}
+.chat-head-top{display:flex;align-items:center;justify-content:flex-start;gap:10px;width:100%;flex-wrap:wrap}
+.chat-actions{display:flex;align-items:center;gap:2px}
+.chat-actions .icon-btn{width:30px;height:30px}
+.chat-calls{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
 .chat-calls .call-btn{cursor:pointer}
 #chatThread .call-join{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 14px;margin-top:6px;font-size:12px;text-decoration:none}
 #chatThread .msg-meeting{margin-top:6px;padding:10px 12px;border-radius:12px;display:flex;flex-direction:column;gap:3px;align-items:flex-start;background:rgba(184,255,61,.07);border:1px solid rgba(184,255,61,.3)}

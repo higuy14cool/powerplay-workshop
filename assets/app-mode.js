@@ -419,6 +419,26 @@
           renderChat();
           toast("Person removed", "ok");
         });
+        const flip = document.createElement("button");
+        flip.className = "chip chip-outline role-btn";
+        flip.type = "button";
+        flip.textContent = person.role === "admin" ? "Make worker" : "Make admin";
+        flip.title = person.role === "admin" ? `Take admin rights from ${person.username}` : `Let ${person.username} run the workshop`;
+        flip.addEventListener("click", () => {
+          const to = person.role === "admin" ? "worker" : "admin";
+          const ask = to === "admin"
+            ? `Make ${person.username} an admin? They can add and remove people and read every chat.`
+            : `Make ${person.username} a worker again? They lose admin powers and see only their own chats.`;
+          if (!window.confirm(ask)) return;
+          const res = A.setRole(person.id, to);
+          if (!res.ok) return toast(res.error, "err");
+          renderBoard();
+          fillAssignForm();
+          paintMe();
+          renderChat();
+          toast(`${person.username} is now ${to === "admin" ? "an admin" : "a worker"}`, "ok");
+        });
+        row.appendChild(flip);
         row.appendChild(del);
       }
 
@@ -523,10 +543,27 @@
     });
   }
 
+  /* Rename and delete sit next to the chat title: a named chat can be renamed by
+     the people in it, and a chat can be deleted by whoever made it or an admin. */
+  function renderChatActions() {
+    const box = $("#chatActions");
+    if (!box) return;
+    const scope = currentScope();
+    const rename = !!scope && A.canRenameChat(scope.id);
+    const remove = !!scope && A.canDeleteChat(scope.id);
+    box.hidden = !(rename || remove);
+    const renameBtn = $("#chatRenameBtn");
+    const deleteBtn = $("#chatDeleteBtn");
+    if (renameBtn) renameBtn.hidden = !rename;
+    if (deleteBtn) deleteBtn.hidden = !remove;
+    if (deleteBtn && scope) deleteBtn.title = scope.kind === "dm" ? `Delete the chat with ${scope.label}` : `Delete ${scope.label}`;
+  }
+
   function renderChat() {
     renderScopes();
     const title = $("#chatTitle");
     if (title) title.textContent = chatTitle();
+    renderChatActions();
     renderCallButtons();
     const log = $("#chatThread");
     const me = A.current();
@@ -1119,6 +1156,34 @@
       });
     }
     $$("[data-close-forward]").forEach((el) => el.addEventListener("click", () => closeModal("forward")));
+    const renameBtn = $("#chatRenameBtn");
+    if (renameBtn) {
+      renameBtn.addEventListener("click", () => {
+        const scope = currentScope();
+        if (!scope || !A.canRenameChat(scope.id)) return;
+        const next = window.prompt("Name this chat", scope.label);
+        if (next === null) return;
+        const res = A.renameChat(scope.id, next);
+        if (!res.ok) return toast(res.error, "err");
+        renderChat();
+        toast("Chat renamed", "ok");
+      });
+    }
+    const deleteChatBtn = $("#chatDeleteBtn");
+    if (deleteChatBtn) {
+      deleteChatBtn.addEventListener("click", () => {
+        const scope = currentScope();
+        if (!scope || !A.canDeleteChat(scope.id)) return;
+        const what = scope.kind === "dm" ? `your chat with ${scope.label}` : `"${scope.label}"`;
+        if (!window.confirm(`Delete ${what}? It is removed from every device, with its messages.`)) return;
+        const res = A.deleteChat(scope.id);
+        if (!res.ok) return toast(res.error, "err");
+        state.scope = "group";
+        state.editingId = null;
+        renderChat();
+        toast("Chat deleted", "ok");
+      });
+    }
     $("#newChatBtn").addEventListener("click", openNewChat);
     $("#newChatForm").addEventListener("submit", onCreateChat);
     $$("[data-close-newchat]").forEach((el) => el.addEventListener("click", () => closeModal("newchat")));
