@@ -693,7 +693,7 @@
         a.href = m.call.url;
         a.target = "_blank";
         a.rel = "noopener";
-        a.textContent = m.call.video ? "Join video call" : "Join call";
+        a.textContent = "Open Google Meet";
         bubble.appendChild(a);
       }
       if (m.meeting) {
@@ -716,10 +716,10 @@
         who.textContent = names.length ? "With " + names.join(", ") : "With the team";
         const join = document.createElement("a");
         join.className = "btn btn-lime call-join";
-        join.href = A.callUrl("meeting:" + m.meeting.id, true);
+        join.href = A.callUrl();
         join.target = "_blank";
         join.rel = "noopener";
-        join.textContent = "Join meeting";
+        join.textContent = "Open Google Meet";
         card.append(name, when, who, join);
         bubble.appendChild(card);
       }

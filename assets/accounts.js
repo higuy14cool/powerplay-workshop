@@ -956,28 +956,11 @@
   }
 
   /* ---------- calls ----------
-     A call is a room on the public Jitsi Meet service: no account, no key, and the
-     same room name on both devices, so the two people in a chat land in the same
-     place. Only a hash of the chat is used, never the people's ids. */
-  function roomName(seed) {
-    let a = 0x811c9dc5;
-    let b = 0x01000193;
-    const text = String(seed || "");
-    for (let i = 0; i < text.length; i++) {
-      const c = text.charCodeAt(i);
-      a = ((a ^ c) * 0x01000193) >>> 0;
-      b = ((b + c * 31 + i) * 0x85ebca6b) >>> 0;
-    }
-    return "powerplay-" + a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
-  }
-
-  /* video false starts with the camera off, which makes it a voice call. */
-  function callUrl(seed, video) {
-    return (
-      "https://meet.jit.si/" +
-      roomName(seed) +
-      (video ? "#config.startWithVideoMuted=false" : "#config.startWithVideoMuted=true")
-    );
+     A call opens Google Meet. Meet has no public way to open the same named room
+     twice without an account, so the person who starts the call makes a meeting
+     there and the thread asks them to paste the link for the other person. */
+  function callUrl() {
+    return "https://meet.google.com/new";
   }
 
   /* A call belongs to a chat that has exactly two people in it: a direct chat, or
@@ -998,12 +981,14 @@
     if (!user) return { ok: false, error: "Sign in first." };
     if (!isOneToOne(scopeId)) return { ok: false, error: "A call is for a chat between two people." };
     if (!isParticipant(scopeId, user)) return { ok: false, error: "You are not in this chat." };
-    const url = callUrl(scopeId, !!video);
+    const url = callUrl();
     const msg = {
       id: uid("m"),
       scope: scopeId,
       from: user.id,
-      text: video ? "Video call started \u2014 tap Join to come in." : "Call started \u2014 tap Join to come in.",
+      text: video
+        ? "Video call started on Google Meet \u2014 open it and paste the meeting link here so the other person can join."
+        : "Call started on Google Meet \u2014 open it and paste the meeting link here so the other person can join.",
       at: Date.now(),
       call: { url, video: !!video },
     };

@@ -337,6 +337,14 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
       <h3 id="gameModalTitle">Game</h3>
       <p id="gameModalDesc" class="muted"></p>
       <div class="meta-grid" id="gameModalMeta"></div>
+      <label class="status-edit" for="gameStatusSel">
+        <span>Status</span>
+        <select id="gameStatusSel" class="status-select">
+          <option>In progress</option>
+          <option>Prototype</option>
+          <option>Released</option>
+        </select>
+      </label>
       <div class="game-modal-actions" id="gameModalActions">
         <button class="btn btn-lime" id="playGameBtn" type="button">Play now</button>
         <button class="btn btn-ghost" id="editManualBtn" type="button" title="Open the game on the play stage with the manual editing tools">
