@@ -11,8 +11,18 @@
   "use strict";
 
   const TOPIC = "powerplay-higuy14cool-workshop-people-v2";
-  const BASE = "https://ntfy.sh/" + TOPIC;
   const SHAPE = "powerplay-people";
+
+  /* A test or a second workshop can point the board somewhere else. */
+  function topic() {
+    try {
+      const own = String(localStorage.getItem("powerplay.people.topic") || "").trim();
+      if (own) return own;
+    } catch (err) {}
+    return TOPIC;
+  }
+
+  const base = () => "https://ntfy.sh/" + topic();
 
   async function hash(name, pass) {
     if (!window.crypto || !window.crypto.subtle) return null;
@@ -44,13 +54,15 @@
       const rows = [];
       for (const user of people) {
         if (!String(user.username || "").trim()) continue;
-        const digest = await hash(user.username, user.passcode);
+        /* A person published as a hash only has no passcode here: keep the hash
+           the account file gave, instead of hashing an empty passcode. */
+        const digest = String(user.hash || "").trim() || (await hash(user.username, user.passcode));
         if (!digest) return false;
         rows.push(entry(user, digest));
       }
       if (!rows.length) return false;
       const body = JSON.stringify({ v: 1, shape: SHAPE, at: new Date().toISOString(), people: rows });
-      const res = await fetch(BASE, {
+      const res = await fetch(base(), {
         method: "POST",
         headers: { "Content-Type": "text/plain", Title: "POWERPLAY people", Tags: "video_game" },
         body,
@@ -75,7 +87,7 @@
 
   async function people() {
     try {
-      const res = await fetch(BASE + "/json?poll=1&since=all", { cache: "no-store" });
+      const res = await fetch(base() + "/json?poll=1&since=all", { cache: "no-store" });
       if (!res.ok) return null;
       const text = await res.text();
       let latest = null;
@@ -97,5 +109,5 @@
     }
   }
 
-  window.PowerplayBoard = { TOPIC, hash, publish, people };
+  window.PowerplayBoard = { TOPIC, topic, hash, publish, people };
 })();

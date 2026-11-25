@@ -124,11 +124,15 @@
     if (!Array.isArray(shared) || !shared.length) return;
     let changed = false;
     shared.forEach((entry) => {
-      if (!entry || !String(entry.username || "").trim() || !String(entry.passcode || "").trim()) return;
+      if (!entry || !String(entry.username || "").trim()) return;
+      /* A hash-only entry is a real person: it can sign in with the passcode the
+         admin gave, and it must show in the workers list so work can be assigned. */
+      const onlyHash = !String(entry.passcode || "").trim() && String(entry.hash || "").trim();
+      if (!onlyHash && !String(entry.passcode || "").trim()) return;
       const name = String(entry.username).trim();
       const key = name.toLowerCase();
       const role = entry.role === "admin" ? "admin" : "worker";
-      const pass = String(entry.passcode).trim();
+      const pass = onlyHash ? "" : String(entry.passcode).trim();
       const found = state.users.find((u) => String(u.username || "").trim().toLowerCase() === key);
       if (found && entry.id && found.id !== entry.id && remapUser(found.id, entry.id)) changed = true;
       if (!found) {
@@ -136,6 +140,7 @@
           id: entry.id || uid("u"),
           username: name,
           passcode: pass,
+          hash: onlyHash ? String(entry.hash).trim() : null,
           role,
           avatar: null,
           color: AVATAR_COLORS[state.users.length % AVATAR_COLORS.length],
@@ -148,9 +153,16 @@
       }
       // The published list is the source of truth for what a login depends on.
       const wantedPass = found.passcodeOverridden ? String(found.passcode || "").trim() : pass;
-      if (found.username !== name || String(found.passcode || "").trim() !== wantedPass || found.role !== role) {
+      const wantedHash = found.passcodeOverridden ? found.hash || null : onlyHash ? String(entry.hash).trim() : null;
+      if (
+        found.username !== name ||
+        String(found.passcode || "").trim() !== wantedPass ||
+        (found.hash || null) !== wantedHash ||
+        found.role !== role
+      ) {
         found.username = name;
         found.passcode = wantedPass;
+        found.hash = wantedHash;
         found.role = role;
         changed = true;
       }
@@ -165,13 +177,26 @@
 
   /* The people as a file the site can ship, so a login works on any device. */
   function fileText(extra) {
-    const users = state.users.map((u) => ({
-      id: u.id,
-      username: u.username,
-      passcode: u.passcode,
-      role: u.role,
-      assigned: (u.assigned || []).slice(),
-    }));
+    const users = state.users.map((u) => {
+      /* A person who only ever arrived as a hash is written back the same way, so
+         saving the file again cannot delete his way in. */
+      if (!String(u.passcode || "").trim() && String(u.hash || "").trim()) {
+        return {
+          id: u.id,
+          username: u.username,
+          role: u.role,
+          assigned: (u.assigned || []).slice(),
+          hash: String(u.hash),
+        };
+      }
+      return {
+        id: u.id,
+        username: u.username,
+        passcode: u.passcode,
+        role: u.role,
+        assigned: (u.assigned || []).slice(),
+      };
+    });
     /* People the published file knows and this browser does not are kept, never
        dropped: another device's workers must survive this device's backup. */
     (Array.isArray(extra) ? extra : []).forEach((entry) => {
@@ -496,6 +521,26 @@
       boardTimer = null;
       board.publish(state.users);
     }, 1200);
+  }
+
+  /* The board's message only lives twelve hours, so the newest list has to be put
+     back now and then. Any signed-in device holding a list that already knows
+     everyone on the board republishes it once the copy is old; a list that is
+     missing somebody is older than the board and never publishes, so a removed
+     worker cannot drift back in. */
+  async function keepBoardAlive() {
+    const board = window.PowerplayBoard;
+    const me = current();
+    if (!board || !me || !state.users.length) return false;
+    const data = await board.people();
+    if (data) {
+      const mine = new Set(state.users.map((u) => String(u.username || "").trim().toLowerCase()));
+      const missing = data.people.some((p) => !mine.has(String(p.username || "").trim().toLowerCase()));
+      if (missing) return false;
+      const age = data.at ? Date.now() - Date.parse(data.at) : Infinity;
+      if (age < 6 * 60 * 60 * 1000) return false;
+    }
+    return board.publish(state.users);
   }
 
   function login(username, passcode) {
@@ -1065,7 +1110,11 @@
       return { ok: false, error: "That username is taken." };
     }
     // A passcode changed here must survive the next load of the published account list.
-    if (pass !== user.passcode) user.passcodeOverridden = true;
+    if (pass !== user.passcode) {
+      user.passcodeOverridden = true;
+      /* The old hash no longer proves this passcode: let the board publish a new one. */
+      user.hash = null;
+    }
     user.username = name;
     user.passcode = pass;
     save();
@@ -1121,6 +1170,7 @@
     login,
     refreshShared,
     publishBoard,
+    keepBoardAlive,
     chatBundle,
     receiveChats,
     logout,

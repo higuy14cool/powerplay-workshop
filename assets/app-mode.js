@@ -176,6 +176,8 @@
     $("#loginPass").value = "";
     showApp(result.user);
     if (result.user.role === "admin") A.publishBoard();
+    /* Anyone who signs in here helps the shared list outlive its twelve hours. */
+    if (A.keepBoardAlive) A.keepBoardAlive();
     /* The work saved on the other devices is waiting on the relay: bring it in. */
     if (window.PowerplayCloud) setTimeout(() => window.PowerplayCloud.pull(), 400);
     toast(`Signed in as ${result.user.username}`, "ok");
@@ -1186,6 +1188,7 @@
       /* An admin who was already signed in still republishes, so the board never
          goes stale just because the tab was left open for a day. */
       if (user.role === "admin") A.publishBoard();
+      if (A.keepBoardAlive) A.keepBoardAlive();
     } else showLogin();
   });
 
