@@ -670,6 +670,8 @@
       if (target) installBtn.href = target;
       installBtn.title = `Install ${game.title} as an app`;
     }
+    const statusSel = $("#gameStatusSel");
+    if (statusSel) statusSel.value = game.status;
     $("#editGameBtn").hidden = false;
     $("#revertGameBtn").hidden = !game.build;
     $("#deleteGameBtn").hidden = false;
@@ -913,6 +915,22 @@
     toast(`“${game.title}” added to your library.`);
   }
 
+  const STATUSES = ["In progress", "Prototype", "Released"];
+
+  /* The badge on the card, the modal line and the filter chips all read the status,
+     so one change repaints the library and the card that is open. */
+  function handleStatusChange(e) {
+    const game = state.activeGame;
+    const status = String(e.currentTarget.value || "");
+    if (!game || STATUSES.indexOf(status) < 0 || game.status === status) return;
+    game.status = status;
+    game.updated = "just now";
+    saveGames();
+    renderLibrary();
+    $("#gameModalTag").textContent = `// ${game.genre.toLowerCase()} · ${game.status.toLowerCase()}`;
+    toast(`“${game.title}” is now ${status.toLowerCase()}.`);
+  }
+
   function handleDelete() {
     const game = state.activeGame;
     if (!game) return;
@@ -1017,6 +1035,8 @@
     $("#addGameForm").addEventListener("submit", handleAddSubmit);
     $("#replaceForm").addEventListener("submit", handleReplaceSubmit);
     $("#deleteGameBtn").addEventListener("click", handleDelete);
+    const statusSel = $("#gameStatusSel");
+    if (statusSel) statusSel.addEventListener("change", handleStatusChange);
     $("#editGameBtn").addEventListener("click", () => {
       const game = state.activeGame;
       closeModal("game");
