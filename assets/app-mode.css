@@ -124,6 +124,8 @@ body:not(.is-locked) .login-screen{display:none}
 .scope-chip.is-watch{border-style:dashed;opacity:.9}
 .chat-form{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
 .chat-form input{padding:11px 13px;font-size:14px}
+.chat-form input:disabled{opacity:.72;cursor:not-allowed}
+.chat-form .btn:disabled{opacity:.45;cursor:not-allowed}
 .chat-form .btn{padding:0 18px;height:44px}
 .chat-photo{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:#12151f;color:var(--muted);display:grid;place-items:center;cursor:pointer}
 .chat-photo:hover{color:var(--lime);border-color:rgba(184,255,61,.45)}

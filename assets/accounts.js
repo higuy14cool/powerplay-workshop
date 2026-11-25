@@ -17,6 +17,16 @@
   };
 
   const ROLE_LABEL = { admin: "Admin", worker: "Worker" };
+
+  /* Announcements was restarted on 24 Nov 2026: the old thread is cleared and from
+     now on only admins post there. Every announcement posted since carries this
+     marker, so each device drops the thread from before it, whatever its clock. */
+  const ANNOUNCEMENTS_GEN = "2026-11-24-restart";
+
+  function isOldAnnouncement(m) {
+    return !!m && m.scope === "group" && m.gen !== ANNOUNCEMENTS_GEN;
+  }
+
   const AVATAR_COLORS = ["#b6ff3d", "#a78bfa", "#38e1ff", "#ff9f45", "#ff6b9d", "#5b9dff", "#4ade80", "#f87171"];
 
   function uid(prefix) {
@@ -292,7 +302,7 @@
           else delete m.comment;
           return m;
         })
-        .filter((m) => !isAutoGreeting(m));
+        .filter((m) => !isAutoGreeting(m) && !isOldAnnouncement(m));
       const known = new Set(data.users.map((u) => u.id));
       data.chats = (Array.isArray(data.chats) ? data.chats : [])
         .filter((c) => c && c.id && Array.isArray(c.members))
@@ -616,6 +626,14 @@
     return false;
   }
 
+  /* Announcements is a noticeboard: admins post, everyone else reads. Every other
+     chat takes messages from the people in it. */
+  function canPost(scopeId, user = current()) {
+    if (!user) return false;
+    if (String(scopeId || "") === "group") return user.role === "admin";
+    return isParticipant(scopeId, user);
+  }
+
   /* An admin can watch a chat that is not theirs: read it and leave a comment, but
      the messages in it stay the business of the people who are actually in it. */
   function canComment(scopeId, user = current()) {
@@ -710,7 +728,7 @@
 
   function messages(scopeId) {
     return state.messages
-      .filter((m) => m.scope === scopeId)
+      .filter((m) => m.scope === scopeId && !isOldAnnouncement(m))
       .sort((a, b) => a.at - b.at);
   }
 
@@ -725,10 +743,14 @@
       return { ok: false, error: tooBig ? "That picture is too big — try a smaller one." : "That picture can't be sent." };
     }
     if (!canSeeScope(scopeId, user)) return { ok: false, error: "You can't post in that chat." };
+    if (!canPost(scopeId, user)) {
+      return { ok: false, error: "Announcements is for admins — you can read it here." };
+    }
     if (!isParticipant(scopeId, user)) {
       return { ok: false, error: "This chat is between other people — you can comment on it instead." };
     }
     const msg = { id: uid("m"), scope: scopeId, from: user.id, text: body, at: Date.now() };
+    if (scopeId === "group") msg.gen = ANNOUNCEMENTS_GEN;
     if (pic) msg.image = pic;
     state.messages.push(msg);
     save();
@@ -779,6 +801,7 @@
       /* a worker's device keeps only the chats that worker may open */
       if (!m || !m.id || !me || !canSeeScope(m.scope, me)) return;
       if (isAutoGreeting(m)) return; /* an old device may still offer it */
+      if (isOldAnnouncement(m)) return; /* the announcements were restarted */
       incoming.set(m.id, m);
     });
     const gone = new Set((Array.isArray(bundle.deleted) ? bundle.deleted : []).map((d) => d && d.id).filter(Boolean));
@@ -869,6 +892,9 @@
     const user = current();
     if (!msg || !canTouchMessage(msg)) return { ok: false, error: "You can't forward that message." };
     if (!canSeeScope(scopeId, user)) return { ok: false, error: "You can't post in that chat." };
+    if (!canPost(scopeId, user)) {
+      return { ok: false, error: "Announcements is for admins — you can read it here." };
+    }
     const copy = {
       id: uid("m"),
       scope: scopeId,
@@ -877,6 +903,7 @@
       at: Date.now(),
       forwardedFrom: msg.from,
     };
+    if (scopeId === "group") copy.gen = ANNOUNCEMENTS_GEN;
     if (msg.image) copy.image = { ...msg.image };
     state.messages.push(copy);
     save();
@@ -965,6 +992,7 @@
     addComment,
     isParticipant,
     canComment,
+    canPost,
     editMessage,
     deleteMessage,
     forwardMessage,

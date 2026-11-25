@@ -492,14 +492,33 @@
     const me = A.current();
     if (!log || !me) return;
     const watch = watching();
+    /* Announcements is a noticeboard: admins post there, everyone else reads. */
+    const announce = state.scope === "group" && me.role !== "admin";
+    const canPost = !announce;
     const field = $("#chatInput");
     const sendBtn = $("#chatForm") ? $("#chatForm button[type=submit]") : null;
     const photoBtn = $("#chatPhotoBtn");
-    if (field) field.placeholder = watch ? "Add a comment for the people in this chat…" : "Message the crew…";
-    if (sendBtn) sendBtn.textContent = watch ? "Comment" : "Send";
-    if (photoBtn) photoBtn.hidden = watch;
+    if (field) {
+      field.disabled = !canPost;
+      field.placeholder = announce
+        ? "Announcements — admins post here"
+        : watch
+        ? "Add a comment for the people in this chat…"
+        : "Message the crew…";
+    }
+    if (sendBtn) {
+      sendBtn.textContent = watch ? "Comment" : "Send";
+      sendBtn.disabled = !canPost;
+    }
+    if (photoBtn) photoBtn.hidden = watch || !canPost;
     const msgs = A.messages(state.scope);
     log.innerHTML = "";
+    if (announce) {
+      const note = document.createElement("p");
+      note.className = "chat-watch-note";
+      note.textContent = "Announcements is read-only for workers. The admins post here.";
+      log.appendChild(note);
+    }
     if (watch) {
       const note = document.createElement("p");
       note.className = "chat-watch-note";
@@ -509,7 +528,7 @@
     if (!msgs.length) {
       const empty = document.createElement("p");
       empty.className = "empty-note";
-      empty.textContent = "No messages yet — say hello.";
+      empty.textContent = state.scope === "group" ? "No announcements yet." : "No messages yet — say hello.";
       log.appendChild(empty);
       return;
     }
@@ -647,7 +666,7 @@
     if (!list) return;
     list.innerHTML = "";
     A.visibleScopes()
-      .filter((scope) => scope.id !== msg.scope)
+      .filter((scope) => scope.id !== msg.scope && A.canPost(scope.id))
       .forEach((scope) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -747,6 +766,7 @@
   async function sendPhoto(file) {
     const input = $("#chatInput");
     if (watching()) return toast("A watched chat takes comments, not pictures.", "err");
+    if (!A.canPost(state.scope)) return toast("Announcements is for admins — you can read it here.", "err");
     try {
       const pic = await shrinkPhoto(file);
       const res = A.sendMessage(state.scope, input ? input.value : "", pic);
