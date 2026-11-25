@@ -176,10 +176,22 @@
        dropped: another device's workers must survive this device's backup. */
     (Array.isArray(extra) ? extra : []).forEach((entry) => {
       if (!entry || !String(entry.username || "").trim()) return;
-      /* A half-written entry is not a person: it could never sign in. */
-      if (String(entry.passcode || "").trim().length < 4) return;
       const key = String(entry.username).trim().toLowerCase();
       if (users.some((u) => String(u.username).trim().toLowerCase() === key)) return;
+      /* A person published as a hash only is written back as it came, so saving
+         this file again does not delete his way in. */
+      if (entry.hash && String(entry.passcode || "").trim().length < 4) {
+        users.push({
+          id: entry.id || null,
+          username: String(entry.username).trim(),
+          role: entry.role === "admin" ? "admin" : "worker",
+          assigned: Array.isArray(entry.assigned) ? entry.assigned.slice() : [],
+          hash: String(entry.hash),
+        });
+        return;
+      }
+      /* A half-written entry is not a person: it could never sign in. */
+      if (String(entry.passcode || "").trim().length < 4) return;
       users.push({
         id: entry.id || null,
         username: String(entry.username).trim(),
@@ -388,7 +400,8 @@
     } catch (err) {
       /* no published file: the board may still know him */
     }
-    if (await fromBoard(creds)) added = true;
+    if (await fromPublished(creds)) added = true;
+    else if (await fromBoard(creds)) added = true;
     return added;
   }
 
@@ -409,6 +422,45 @@
       (p) => String(p.username).trim().toLowerCase() === name.toLowerCase() && p.hash === digest
     );
     if (!hit) return false;
+    adopt(hit, name, pass);
+    return true;
+  }
+
+  /* A published account may carry only a SHA-256 of "username:passcode" and no
+     passcode (see the hash entry in accounts-data.js). The typed passcode is what
+     proves it; the account is then kept in this browser like any other. */
+  async function fromPublished(creds) {
+    const published = (window.PowerplaySharedAccounts && window.PowerplaySharedAccounts.users) || [];
+    if (!Array.isArray(published) || !published.length || !creds) return false;
+    const name = String(creds.username || "").trim();
+    const pass = String(creds.passcode || "").trim();
+    if (!name || !pass) return false;
+    const rows = published.filter(
+      (e) => e && e.hash && String(e.username || "").trim().toLowerCase() === name.toLowerCase()
+    );
+    if (!rows.length) return false;
+    const digest = await credsHash(name, pass);
+    if (!digest) return false;
+    const hit = rows.find((e) => String(e.hash).toLowerCase() === digest);
+    if (!hit) return false;
+    adopt(hit, name, pass);
+    return true;
+  }
+
+  function credsHash(name, pass) {
+    const board = window.PowerplayBoard;
+    if (board && board.hash) return board.hash(name, pass);
+    if (!window.crypto || !window.crypto.subtle) return Promise.resolve(null);
+    const data = new TextEncoder().encode(String(name).trim().toLowerCase() + ":" + String(pass));
+    return window.crypto.subtle.digest("SHA-256", data).then((buf) =>
+      Array.from(new Uint8Array(buf))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("")
+    );
+  }
+
+  /* Put a person this browser has not seen into it, with the passcode just typed. */
+  function adopt(hit, name, pass) {
     const found = state.users.find((u) => String(u.username || "").trim().toLowerCase() === name.toLowerCase());
     if (found) {
       found.passcode = pass;
@@ -416,7 +468,7 @@
     } else {
       state.users.push({
         id: hit.id || stableId(name),
-        username: String(hit.username).trim(),
+        username: String(hit.username || name).trim(),
         passcode: pass,
         role: hit.role === "admin" ? "admin" : "worker",
         avatar: null,
@@ -428,7 +480,6 @@
     }
     save();
     reload();
-    return true;
   }
 
   /* Keep the board current: an admin publishes on every change and whenever the
@@ -450,6 +501,9 @@
   function login(username, passcode) {
     const name = String(username || "").trim().toLowerCase();
     const pass = String(passcode || "").trim();
+    /* An account published as a hash has no passcode stored here: a blank one
+       must never match it. */
+    if (!pass) return { ok: false, error: "Type your username and passcode." };
     const user = state.users.find(
       (u) => String(u.username || "").trim().toLowerCase() === name && String(u.passcode || "").trim() === pass
     );
