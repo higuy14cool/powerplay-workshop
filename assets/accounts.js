@@ -832,6 +832,95 @@
     return { ok: true, message: msg };
   }
 
+  /* ---------- calls ----------
+     A call is a room on the public Jitsi Meet service: no account, no key, and the
+     same room name on both devices, so the two people in a chat land in the same
+     place. Only a hash of the chat is used, never the people's ids. */
+  function roomName(seed) {
+    let a = 0x811c9dc5;
+    let b = 0x01000193;
+    const text = String(seed || "");
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      a = ((a ^ c) * 0x01000193) >>> 0;
+      b = ((b + c * 31 + i) * 0x85ebca6b) >>> 0;
+    }
+    return "powerplay-" + a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
+  }
+
+  /* video false starts with the camera off, which makes it a voice call. */
+  function callUrl(seed, video) {
+    return (
+      "https://meet.jit.si/" +
+      roomName(seed) +
+      (video ? "#config.startWithVideoMuted=false" : "#config.startWithVideoMuted=true")
+    );
+  }
+
+  /* A call belongs to a chat that has exactly two people in it: a direct chat, or
+     a chat someone started with one other person. */
+  function isOneToOne(scopeId) {
+    const id = String(scopeId || "");
+    if (id.indexOf("dm:") === 0) return id.slice(3).split("|").filter(Boolean).length === 2;
+    if (id.indexOf("chat:") === 0) {
+      const chat = chatFor(id);
+      return !!chat && Array.isArray(chat.members) && chat.members.length === 2;
+    }
+    return false;
+  }
+
+  /* Open the room and leave the other person a way in, in the thread itself. */
+  function startCall(scopeId, video) {
+    const user = current();
+    if (!user) return { ok: false, error: "Sign in first." };
+    if (!isOneToOne(scopeId)) return { ok: false, error: "A call is for a chat between two people." };
+    if (!isParticipant(scopeId, user)) return { ok: false, error: "You are not in this chat." };
+    const url = callUrl(scopeId, !!video);
+    const msg = {
+      id: uid("m"),
+      scope: scopeId,
+      from: user.id,
+      text: video ? "Video call started \u2014 tap Join to come in." : "Call started \u2014 tap Join to come in.",
+      at: Date.now(),
+      call: { url, video: !!video },
+    };
+    state.messages.push(msg);
+    save();
+    return { ok: true, message: msg, url };
+  }
+
+  /* ---------- meetings ---------- */
+  /* An admin books a meeting and sends it into a group, naming who is in it. */
+  function scheduleMeeting({ scopeId, title, at, people } = {}) {
+    const user = current();
+    if (!user) return { ok: false, error: "Sign in first." };
+    if (user.role !== "admin") return { ok: false, error: "Only admins schedule meetings." };
+    const id = String(scopeId || "");
+    const group = id === "group" || !!chatFor(id);
+    if (!group || !canSeeScope(id, user)) return { ok: false, error: "Pick a group to send it to." };
+    const when = Number(at);
+    if (!when || !isFinite(when)) return { ok: false, error: "Pick the day and time." };
+    if (when < Date.now() - 60000) return { ok: false, error: "That time has already passed." };
+    const ids = [];
+    (Array.isArray(people) ? people : []).forEach((personId) => {
+      if (state.users.some((u) => u.id === personId) && !ids.includes(personId)) ids.push(personId);
+    });
+    if (!ids.length) return { ok: false, error: "Tick who is included." };
+    const name = String(title || "").trim().slice(0, 60) || "Team meeting";
+    const msg = {
+      id: uid("m"),
+      scope: id,
+      from: user.id,
+      text: "Meeting: " + name,
+      at: Date.now(),
+      meeting: { id: uid("mt"), title: name, at: when, people: ids },
+    };
+    if (id === "group") msg.gen = ANNOUNCEMENTS_GEN;
+    state.messages.push(msg);
+    save();
+    return { ok: true, message: msg };
+  }
+
   /* ---------- carrying chats to the other devices ---------- */
   /* Only chats travel: the people and their passcodes stay in the published file. */
   function chatBundle() {
@@ -1051,6 +1140,10 @@
     deleteMessage,
     forwardMessage,
     findMessage,
+    isOneToOne,
+    callUrl,
+    startCall,
+    scheduleMeeting,
     updateProfile,
     setAvatar,
     setTheme,

@@ -79,6 +79,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   <div class="topbar-right">
     <a class="btn btn-ghost" href="app.html" style="text-decoration:none">Open app</a>
     <button class="btn btn-ghost" id="navWorkers" type="button">Workers</button>
+    <button class="btn btn-ghost" id="navSchedule" type="button" hidden>Schedule Meetings</button>
     <button class="btn btn-ghost" id="navAddPerson" type="button" hidden>Add person</button>
     <span class="status-pill"><i></i> <span id="statusWho">Workshop online</span></span>
     <button class="btn btn-lime" id="openAddGame" type="button">
@@ -580,7 +581,10 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
       </section>
       <section class="workers-col chat-col">
         <div class="chat-head">
-          <h4 id="chatTitle">Announcements</h4>
+          <div class="chat-head-top">
+            <h4 id="chatTitle">Announcements</h4>
+            <div class="chat-calls" id="chatCallBtns" hidden></div>
+          </div>
           <div class="scope-chips" id="chatScopes"></div>
           <button class="chip chip-outline new-chat-btn" id="newChatBtn" type="button">+ New chat</button>
         </div>
@@ -612,6 +616,27 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
       <div class="new-chat-actions">
         <button class="btn btn-ghost" type="button" data-close-newchat>Cancel</button>
         <button class="btn btn-lime" type="submit">Create chat</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- schedule a meeting (admins) -->
+<div class="modal" id="meetingModal" role="dialog" aria-modal="true" aria-labelledby="meetingModalTitle" hidden>
+  <div class="modal-backdrop" data-close-meeting></div>
+  <div class="modal-card format-card">
+    <p class="eyebrow">// meeting</p>
+    <h3 id="meetingModalTitle">Schedule a meeting</h3>
+    <form id="meetingForm" class="stack">
+      <label class="field"><span>What is it</span><input id="meetingName" required maxlength="60" placeholder="e.g. Monday standup" autocomplete="off"></label>
+      <label class="field"><span>When</span><input id="meetingWhen" type="datetime-local" required></label>
+      <label class="field"><span>Send it to a group</span><select id="meetingGroup"></select></label>
+      <p class="hint-small">Who is included? Everyone in the group sees the meeting; the people you tick are named on it.</p>
+      <div class="new-chat-people" id="meetingPeople"></div>
+      <p class="form-error" id="meetingError" hidden></p>
+      <div class="new-chat-actions">
+        <button class="btn btn-ghost" type="button" data-close-meeting>Cancel</button>
+        <button class="btn btn-lime" type="submit">Schedule &amp; send</button>
       </div>
     </form>
   </div>

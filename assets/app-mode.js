@@ -136,6 +136,7 @@
   function applyRole(user) {
     const admin = !!user && user.role === "admin";
     $("#navAddPerson").hidden = !admin;
+    $("#navSchedule").hidden = !admin;
     $("#openAddGame").hidden = !admin;
   }
 
@@ -484,10 +485,47 @@
     return watching() ? `${name} · read and comment only` : name;
   }
 
+  /* Call and video live in a chat that is just two people: you and one other
+     worker or admin. Groups, Announcements and chats you only watch get none. */
+  function renderCallButtons() {
+    const box = $("#chatCallBtns");
+    if (!box) return;
+    const scope = currentScope();
+    const me = A.current();
+    const live = !!scope && !!me && !scope.watch && A.isOneToOne(scope.id);
+    if (!live) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+    box.innerHTML = "";
+    [
+      { video: false, label: "Call", title: "Start a voice call" },
+      { video: true, label: "Video", title: "Start a video call" },
+    ].forEach((kind) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip chip-outline call-btn";
+      btn.dataset.call = kind.video ? "video" : "voice";
+      btn.title = kind.title;
+      btn.textContent = kind.label;
+      btn.addEventListener("click", () => {
+        const res = A.startCall(state.scope, kind.video);
+        if (!res.ok) return toast(res.error, "err");
+        window.open(res.url, "_blank", "noopener");
+        renderChat();
+        toast(kind.video ? "Video call opened — Join is in the chat." : "Call opened — Join is in the chat.", "ok");
+      });
+      box.appendChild(btn);
+    });
+  }
+
   function renderChat() {
     renderScopes();
     const title = $("#chatTitle");
     if (title) title.textContent = chatTitle();
+    renderCallButtons();
     const log = $("#chatThread");
     const me = A.current();
     if (!log || !me) return;
@@ -610,6 +648,42 @@
         link.appendChild(img);
         bubble.appendChild(link);
       }
+      if (m.call) {
+        const a = document.createElement("a");
+        a.className = "btn btn-lime call-join";
+        a.href = m.call.url;
+        a.target = "_blank";
+        a.rel = "noopener";
+        a.textContent = m.call.video ? "Join video call" : "Join call";
+        bubble.appendChild(a);
+      }
+      if (m.meeting) {
+        const card = document.createElement("div");
+        card.className = "msg-meeting";
+        const name = document.createElement("strong");
+        name.textContent = m.meeting.title;
+        const when = document.createElement("span");
+        when.className = "meeting-when";
+        when.textContent = new Date(m.meeting.at).toLocaleString([], {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const who = document.createElement("span");
+        who.className = "meeting-people";
+        const names = (m.meeting.people || []).map((id) => (byId[id] || {}).username).filter(Boolean);
+        who.textContent = names.length ? "With " + names.join(", ") : "With the team";
+        const join = document.createElement("a");
+        join.className = "btn btn-lime call-join";
+        join.href = A.callUrl("meeting:" + m.meeting.id, true);
+        join.target = "_blank";
+        join.rel = "noopener";
+        join.textContent = "Join meeting";
+        card.append(name, when, who, join);
+        bubble.appendChild(card);
+      }
       if (m.editedAt) {
         const mark = document.createElement("span");
         mark.className = "msg-edited";
@@ -685,6 +759,95 @@
       list.innerHTML = '<p class="empty-note">There is nowhere else to forward it yet.</p>';
     }
     openModal("forward");
+  }
+
+  /* ---------- schedule a meeting (admins) ---------- */
+  function openMeeting() {
+    const me = A.current();
+    if (!me || me.role !== "admin") return toast("Only admins schedule meetings.", "err");
+    const form = $("#meetingForm");
+    if (form) form.reset();
+    const error = $("#meetingError");
+    if (error) error.hidden = true;
+    const group = $("#meetingGroup");
+    if (group) {
+      group.innerHTML = "";
+      A.visibleScopes()
+        .filter((scope) => scope.kind === "group" || scope.kind === "chat")
+        .forEach((scope) => {
+          const opt = document.createElement("option");
+          opt.value = scope.id;
+          opt.textContent = scope.kind === "group" ? scope.label : "# " + scope.label;
+          group.appendChild(opt);
+        });
+    }
+    const who = $("#meetingPeople");
+    if (who) {
+      who.innerHTML = "";
+      A.users().forEach((u) => {
+        const label = document.createElement("label");
+        label.className = "new-chat-person";
+        const tick = document.createElement("input");
+        tick.type = "checkbox";
+        tick.value = u.id;
+        tick.checked = true;
+        const name = document.createElement("span");
+        name.textContent = u.username;
+        const role = document.createElement("em");
+        role.textContent = A.ROLE_LABEL[u.role] || u.role;
+        label.append(tick, name, role);
+        who.appendChild(label);
+      });
+    }
+    const when = $("#meetingWhen");
+    if (when) when.value = dateTimeValue(nextHour());
+    openModal("meeting");
+  }
+
+  function nextHour() {
+    const d = new Date();
+    d.setSeconds(0, 0);
+    d.setMinutes(0);
+    d.setHours(d.getHours() + 1);
+    return d;
+  }
+
+  /* "datetime-local" wants the local time without a timezone: 2026-11-24T15:30 */
+  function dateTimeValue(d) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return (
+      d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+      "T" + pad(d.getHours()) + ":" + pad(d.getMinutes())
+    );
+  }
+
+  function onScheduleMeeting(event) {
+    event.preventDefault();
+    const error = $("#meetingError");
+    const when = $("#meetingWhen");
+    const at = when && when.value ? new Date(when.value).getTime() : 0;
+    const people = $$("#meetingPeople input[type=checkbox]")
+      .filter((el) => el.checked)
+      .map((el) => el.value);
+    const res = A.scheduleMeeting({
+      scopeId: $("#meetingGroup").value,
+      title: $("#meetingName").value,
+      at,
+      people,
+    });
+    if (!res.ok) {
+      if (error) {
+        error.textContent = res.error;
+        error.hidden = false;
+      }
+      return;
+    }
+    if (error) error.hidden = true;
+    closeModal("meeting");
+    state.scope = res.message.scope;
+    state.editingId = null;
+    renderChat();
+    toast("Meeting scheduled and sent.", "ok");
   }
 
   /* ---------- a new chat, with as many people as you like ---------- */
@@ -938,6 +1101,9 @@
       openModal("workers");
     });
     $("#navAddPerson").addEventListener("click", openPerson);
+    $("#navSchedule").addEventListener("click", openMeeting);
+    $("#meetingForm").addEventListener("submit", onScheduleMeeting);
+    $$("[data-close-meeting]").forEach((el) => el.addEventListener("click", () => closeModal("meeting")));
     $("#assignForm").addEventListener("submit", onAssign);
     $("#chatForm").addEventListener("submit", onSend);
     const photoBtn = $("#chatPhotoBtn");
