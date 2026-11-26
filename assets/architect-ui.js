@@ -850,7 +850,46 @@ render();
         ? ""
         : `**${game.title} is not assigned to you**, so I can't change it. Your admin decides who works on what — open one of the games on your home screen and press **Edit with AI**.`;
     }
+    return newGameRefusal();
+  }
+
+  // The full answer once, the short one after that: a worker is never told the
+  // same paragraph twice in a row.
+  let newGameRefusals = 0;
+  function newGameRefusal() {
+    newGameRefusals += 1;
+    if (newGameRefusals > 1) {
+      return "Adding a game to the library is the one thing I can't do here — your admin adds it and assigns it to you. Anything else, ask away.";
+    }
     return "Workers can't create new games — your admin creates them and assigns them to you.\n\nOpen a game that is assigned to you (they're on your home screen) and press **Edit with AI**: I'll rebuild that game's playable version from your words. You can always ask me how something works.";
+  }
+
+  // A worker's message that asks for a game the library does not have yet. Only
+  // that is refused: everything else they ask is answered and acted on.
+  function wantsNewGame(text) {
+    const t = String(text || "").trim();
+    if (!t || isQuestion(t) || namedGame(t)) return false;
+    return isBuildAsk(t) ||
+      /\b(?:i (?:want|need)|give me|make|build|create|add|generate|design|start)\b[\s\S]{0,40}\b(?:game|games|app|apps|site|website|quiz|tool|page|player|level)\b/i.test(t);
+  }
+
+  // A worker asking why they cannot add games gets the reason, not the refusal.
+  let workerWhySaid = false;
+  function workerWhy(text) {
+    if (!workerSession()) return "";
+    const l = String(text || "").toLowerCase();
+    if (!/\b(why|how come|what'?s the reason)\b/.test(l)) return "";
+    const aboutGames = /\b(games?|apps?)\b/.test(l) &&
+      /\b(make|makes|making|create|creates|creating|build|builds|building|add|adds|adding|design|start)\b/.test(l);
+    const aboutBlock = /\b(can'?t|cannot|can not|not allowed|not able|unable|blocked|forbidden)\b/.test(l);
+    if (!aboutGames || !aboutBlock) return "";
+    if (workerWhySaid) {
+      return "Short version: the library is your admin's, so they add games and hand them out — everything else is open to me. Open a game assigned to you and press **Edit with AI**, or ask your admin to add this one and assign it to you.";
+    }
+    workerWhySaid = true;
+    return "Because the library is your admin's catalogue, not a shared folder: every game on it appears on everyone's home screen and is assigned to particular people, so one place has to decide what exists and who works on what. If every worker's AI could add games, the library would fill with near-duplicates and nobody could tell what was being tested.\n\n" +
+      "So the split is: **your admin** adds a game and assigns it; **you and I** build inside the games assigned to you — open one on your home screen, press **Edit with AI**, and I'll rebuild or extend its playable version.\n\n" +
+      "Want this one in the library? Ask your admin to add it and assign it to you. They can also make you an admin, and then you can add games yourself.";
   }
 
   // A prompt that names a game type gets that build; otherwise the arcade loop.
@@ -1318,6 +1357,15 @@ render();
       return;
     }
 
+    // A worker asking why they cannot add games gets the reason, once.
+    const why = workerWhy(trimmed);
+    if (why) {
+      hideTyping();
+      addMessage("ai", why);
+      busy = false;
+      return;
+    }
+
     // "Show me the preview" runs the build at once, even with no model set up.
     if (wantsPreview(trimmed)) {
       hideTyping();
@@ -1369,6 +1417,7 @@ render();
   const AI_RULES = [
     "You are the Architect inside POWERPLAY Workshop, the user's own app and game workshop.",
     "The user is the boss. Do exactly what they ask.",
+    "If the person signed in is a worker, they may ask you for anything — explain, plan, review, and change the games assigned to them — and you say yes to all of it. The one thing you never do is add a new game to the library. If they ask why, give the reason in two sentences (the library is the admin's catalogue and every game on it is assigned to someone) and carry on; never repeat the same refusal twice in one conversation.",
     "Never replace their idea with a different app, never hand back a template because their wording was unfamiliar, and never say you cannot build something. Build the closest real, working version and say in one line what you left out.",
     "If the request is ambiguous, take the most likely reading and name it in one short line.",
     "If they ask a question or how something works, answer it plainly in 2-4 short paragraphs, no code.",
@@ -1668,8 +1717,15 @@ render();
   }
 
   async function respondWithAI(trimmed) {
-    // Workers only edit assigned games; they cannot add games to the library.
-    const blocked = workerBlock(editingGame);
+    // A worker may ask for anything here; adding a game to the library is the
+    // admin's job, so that — and only that — is refused.
+    const blocked = !workerSession()
+      ? ""
+      : editingGame
+        ? workerBlock(editingGame)
+        : wantsNewGame(trimmed)
+          ? newGameRefusal()
+          : "";
     if (blocked) {
       hideTyping();
       addMessage("ai", blocked);
@@ -1829,7 +1885,13 @@ render();
       }
 
       // Workers only edit assigned games; they cannot add games to the library.
-      const blocked = workerBlock(editingGame);
+      const blocked = !workerSession()
+        ? ""
+        : editingGame
+          ? workerBlock(editingGame)
+          : wantsNewGame(trimmed)
+            ? newGameRefusal()
+            : "";
       if (blocked) {
         addMessage("ai", blocked);
         busy = false;
