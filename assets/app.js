@@ -269,6 +269,14 @@
     return state.gameScope ? state.games.filter(state.gameScope) : state.games;
   }
 
+  /* A worker builds inside their games but does not run the shelf: the stage a
+     game is at (In progress / Prototype / Released) is the admin's call. */
+  function isWorker() {
+    const A = window.PowerplayAccounts;
+    const me = A && A.current ? A.current() : null;
+    return !!me && me.role === "worker";
+  }
+
   function setGameScope(fn) {
     state.gameScope = typeof fn === "function" ? fn : null;
     state.filter = "all";
@@ -671,7 +679,14 @@
       installBtn.title = `Install ${game.title} as an app`;
     }
     const statusSel = $("#gameStatusSel");
-    if (statusSel) statusSel.value = game.status;
+    if (statusSel) {
+      statusSel.value = game.status;
+      // Workers see the stage the admin set; only an admin moves it.
+      const locked = isWorker();
+      const label = statusSel.closest(".status-edit");
+      statusSel.disabled = locked;
+      if (label) label.hidden = locked;
+    }
     $("#editGameBtn").hidden = false;
     $("#revertGameBtn").hidden = !game.build;
     $("#deleteGameBtn").hidden = false;
@@ -922,6 +937,11 @@
   function handleStatusChange(e) {
     const game = state.activeGame;
     const status = String(e.currentTarget.value || "");
+    if (isWorker()) {
+      if (game) e.currentTarget.value = game.status;
+      toast("Only an admin can change a game's stage.", "err");
+      return;
+    }
     if (!game || STATUSES.indexOf(status) < 0 || game.status === status) return;
     game.status = status;
     game.updated = "just now";
