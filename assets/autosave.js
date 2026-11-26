@@ -470,6 +470,23 @@
           touched = true;
           added++;
         });
+        /* A game that still has the link or the stage it shipped with is untouched: the
+           copy the workshop saved (the admin's own link and stage) wins, so an uninstall
+           never puts a game back on an old build. */
+        const shipped = (window.PowerplayGames && Array.isArray(window.PowerplayGames.GAMES) ? window.PowerplayGames.GAMES : [])
+          .reduce((map, g) => { if (g && g.id) map[g.id] = g; return map; }, {});
+        (Array.isArray(saved) ? saved : []).forEach((g) => {
+          if (!g || !g.id) return;
+          const mine = games.find((x) => x && x.id === g.id);
+          const seed = shipped[g.id];
+          if (!mine || !seed) return;
+          ["url", "status"].forEach((field) => {
+            if (g[field] && g[field] !== mine[field] && mine[field] === seed[field]) {
+              mine[field] = g[field];
+              touched = true;
+            }
+          });
+        });
         if (touched) nativeSet.call(window.localStorage, "powerplay.games.v3", JSON.stringify(games));
       } catch (err) {}
     }

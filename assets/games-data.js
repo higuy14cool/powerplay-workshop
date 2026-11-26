@@ -39,7 +39,7 @@
       status: "Released",
       pitch: "Fast arcade basketball with a shot clock, steals, blocks and big dunks.",
       cover: { image: "assets/covers/dunkin.jpg", colors: ["#ffb020", "#ff5f3d"] },
-      url: "games/dunkin/",
+      url: "https://higuy14cool.github.io/dunkin-hoops/",
     },
     {
       id: "prokick",
@@ -48,7 +48,7 @@
       status: "Released",
       pitch: "The competitive football game: build your team and own the pitch.",
       cover: { image: "assets/covers/prokick.jpg", colors: ["#b8ff3d", "#0ea5e9"] },
-      url: "games/prokick/",
+      url: "https://higuy14cool.github.io/prokick/",
     },
   ];
 
