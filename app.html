@@ -72,6 +72,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
 
   <nav class="topnav" aria-label="Sections">
     <a href="#library" class="is-active" data-nav="library">Library</a>
+    <a href="#shop" data-nav="shop">Shop</a>
     <a href="#architect" data-nav="architect">App Architect</a>
     <a href="#about" data-nav="about">About</a>
   </nav>
@@ -152,10 +153,22 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     <p class="empty-state" id="emptyState" hidden>No games match that search. Try another title — or build a new one.</p>
   </section>
 
+  <section class="section" id="shop">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">// 02 — powerplay shop</p>
+        <h2>PowerPlay Shop</h2>
+      </div>
+      <p class="section-note">Every released game, ready to play.</p>
+    </div>
+    <div class="game-grid shop-grid" id="shopGrid"></div>
+    <p class="empty-state" id="shopEmpty" hidden>Nothing on the shelf yet — release a game and it lands here.</p>
+  </section>
+
   <section class="section architect" id="architect">
     <div class="section-head">
       <div>
-        <p class="eyebrow">// 02 — app architect</p>
+        <p class="eyebrow">// 03 — app architect</p>
         <h2>Describe it. We'll architect it.</h2>
       </div>
       <div class="engine-chips">
@@ -299,7 +312,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   <section class="section about" id="about">
     <div class="about-card">
       <div>
-        <p class="eyebrow">// 03 — about</p>
+        <p class="eyebrow">// 04 — about</p>
         <h2>Built for power plays.</h2>
         <p>POWERPLAY Workshop is your private arcade shelf and design desk in one. Every game lives in your browser (localStorage), so your library is still here when you come back. The Architect runs locally — it plans apps, picks a stack, writes starter code you can copy, download or preview instantly.</p>
       </div>

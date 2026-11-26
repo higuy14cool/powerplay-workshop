@@ -214,6 +214,9 @@ img.cover-art{object-fit:cover;object-position:center top}
 .game-stats{display:flex;gap:14px;margin-top:6px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-family:var(--mono);font-size:10.5px;color:var(--muted-2);letter-spacing:.04em}
 .game-stats b{color:#c4cada;font-weight:600}
 .edited-chip{font-style:normal;color:var(--lime,#b8ff3d);border:1px solid rgba(184,255,61,.35);background:rgba(184,255,61,.08);border-radius:999px;padding:1px 7px;letter-spacing:.05em;text-transform:uppercase;font-size:9.5px}
+.shop-play{margin-top:10px;justify-content:center;width:100%;text-decoration:none}
+.shop-soon{display:block;margin-top:10px;padding:10px 0;text-align:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);border-top:1px dashed var(--line-strong)}
+.section-note{font-size:12.5px;color:var(--muted);max-width:34ch;line-height:1.5}
 .empty-state{text-align:center;color:var(--muted);padding:48px 20px;border:1px dashed var(--line-strong);border-radius:var(--radius);margin-top:6px}
 
 /* ---------- architect ---------- */

@@ -598,6 +598,68 @@
     });
 
     renderStats();
+    renderShop();
+  }
+
+  /* ---------- the shop ----------
+     Everything the workshop has released, on one shelf. The shipped catalogue is the
+     floor, the library on top of it wins: an admin who releases a game or points one at
+     a new link sees that here straight away. */
+  function shopGames() {
+    const byId = new Map();
+    const shipped = window.PowerplayGames && Array.isArray(PowerplayGames.GAMES) ? PowerplayGames.GAMES : [];
+    shipped.forEach((g) => byId.set(g.id, g));
+    state.games.forEach((g) => byId.set(g.id, g));
+    return [...byId.values()].filter((g) => g && g.id && g.status === "Released");
+  }
+
+  function renderShop() {
+    const grid = $("#shopGrid");
+    if (!grid) return;
+    const list = shopGames();
+    const empty = $("#shopEmpty");
+    if (empty) empty.hidden = list.length > 0;
+    grid.innerHTML = "";
+    list.forEach((game) => {
+      const href = playLink(game);
+      const card = document.createElement("article");
+      card.className = "game-card shop-card";
+      card.dataset.shopId = game.id;
+      card.innerHTML = `
+        <div class="game-cover">
+          <span class="badge ${statusClass(game.status)}"><i></i>${escapeHtml(game.status)}</span>
+          ${coverMarkup(game)}
+          <span class="play-float" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7V5z" fill="currentColor"/></svg>
+          </span>
+        </div>
+        <div class="game-body">
+          <div class="game-title-row">
+            <h3 class="game-title">${escapeHtml(game.title)}</h3>
+            <span class="game-genre">${escapeHtml(game.genre || "Game")}</span>
+          </div>
+          <p class="game-pitch">${escapeHtml(game.pitch || "Fresh from the workshop floor.")}</p>
+          <div class="game-stats">
+            <span><b>${formatNum(game.plays || 0)}</b> plays</span>
+            <span><b>${(game.hours || 0).toFixed(1)}h</b> played</span>
+          </div>
+          ${
+            href
+              ? `<a class="btn btn-lime shop-play" href="${escapeHtml(href)}" target="_blank" rel="noopener">Play ${escapeHtml(game.title)}</a>`
+              : '<span class="shop-soon">No link yet — add one from the game card.</span>'
+          }
+        </div>`;
+      grid.appendChild(card);
+      requestAnimationFrame(() => {
+        const canvas = card.querySelector("canvas");
+        if (canvas) paintCover(canvas, game);
+      });
+      const link = card.querySelector(".shop-play");
+      card.addEventListener("click", (e) => {
+        if (e.target.closest(".shop-play")) return;
+        if (link) link.click();
+      });
+    });
   }
 
   function addPlay(id) {
@@ -963,7 +1025,7 @@
 
   /* ---------- nav ---------- */
   function initNav() {
-    const sections = ["library", "architect", "about"].map((id) => document.getElementById(id)).filter(Boolean);
+    const sections = ["library", "shop", "architect", "about"].map((id) => document.getElementById(id)).filter(Boolean);
     const links = $$("[data-nav]");
 
     const observer = new IntersectionObserver(
@@ -996,6 +1058,12 @@
         const seed = SEED_GAMES.find((s) => s.id === g.id);
         if (seed && seed.genre !== g.genre) {
           g.genre = seed.genre;
+          changed = true;
+        }
+        // A game that still points at its old bundled copy follows the link the workshop
+        // ships now, so a saved library never keeps playing a copy nobody updates.
+        if (seed && seed.url && seed.url !== g.url && /^games\//.test(String(g.url || "")) && !/^games\//.test(seed.url)) {
+          g.url = seed.url;
           changed = true;
         }
       });
