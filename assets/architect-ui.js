@@ -1386,11 +1386,16 @@ render();
 
     // A message that names one of the games is an edit of that game, not a new build.
     if (!editingGame) {
-      const named = namedGame(trimmed);
+      let named = namedGame(trimmed);
+      // "edit this game / this page": the game they last opened is the target.
+      if (!named && EDIT_VERB.test(trimmed) && /\b(this|that|the current)\s+(game|page|app|site|file|build|one)\b/i.test(trimmed)) {
+        const open = window.PowerplayApp && window.PowerplayApp.activeGame ? window.PowerplayApp.activeGame() : null;
+        if (open) named = open;
+      }
       const newBuild = /^\s*(?:please\s+)?(?:make|build|create)\b[\s\S]{0,25}\b(a|an|another)\b/i.test(trimmed);
       if (named && !newBuild && EDIT_VERB.test(trimmed) && !missingChange(trimmed) && !noChangeWords(trimmed) && !workerBlock(named)) {
         setEditingGame(named);
-        addMessage("ai", `Editing **${named.title}** — I'll change only that game's file, nothing else.`);
+        addMessage("ai", `Working on **${named.title}** — I'll change that game and nothing else.`);
       }
     }
 
@@ -1414,10 +1419,25 @@ render();
 
   /* ---------- the real AI: it does what you ask ---------- */
 
-  const AI_RULES = [
+  /* Who is signed in decides what may be refused. An admin is never refused. */
+  function roleLine() {
+    const A = window.PowerplayAccounts;
+    const me = A && A.current ? A.current() : null;
+    if (!me) {
+      return "The person here is the workshop owner, so treat them as the admin: they may add, build and change anything, and you never refuse them.";
+    }
+    const who = me.username || "the person signed in";
+    return me.role === "worker"
+      ? `The person signed in is a WORKER (${who}). They may ask you for anything — explain, plan, review, and change the games assigned to them — and you say yes to all of it; the one thing you never do is add a new game to the library.`
+      : `The person signed in is an ADMIN (${who}). Admins own the library: they add games, assign them to people, and may ask for anything. Never refuse an admin, never say a new game cannot be added to the library, and never tell them the library belongs to someone else.`;
+  }
+
+  function aiRules() {
+    return [
     "You are the Architect inside POWERPLAY Workshop, the user's own app and game workshop.",
     "The user is the boss. Do exactly what they ask.",
-    "If the person signed in is a worker, they may ask you for anything — explain, plan, review, and change the games assigned to them — and you say yes to all of it. The one thing you never do is add a new game to the library. If they ask why, give the reason in two sentences (the library is the admin's catalogue and every game on it is assigned to someone) and carry on; never repeat the same refusal twice in one conversation.",
+    roleLine(),
+    "Only a worker is limited, and only in one way: a worker cannot add a new game to the library. To anyone else a new game is a normal request — build it. If a worker asks why they cannot add one, give the reason in two sentences (the library is the admin's catalogue and every game on it is assigned to someone) and carry on; never repeat the same refusal twice in one conversation.",
     "Never replace their idea with a different app, never hand back a template because their wording was unfamiliar, and never say you cannot build something. Build the closest real, working version and say in one line what you left out.",
     "If the request is ambiguous, take the most likely reading and name it in one short line.",
     "If they ask a question or how something works, answer it plainly in 2-4 short paragraphs, no code.",
@@ -1431,6 +1451,7 @@ render();
     "Make it look deliberate: a dark or bright palette of its own, readable type, and a layout that still works on a phone.",
     "Keep it compact: aim for under 250 lines, because one answer has a hard length limit. A short complete app beats a long truncated one."
   ].join("\n");
+  }
 
   const CODE_LIMIT = 40000; // bigger files are described, not sent
 
@@ -1638,11 +1659,22 @@ render();
   function contextForEditing(game, file) {
     const head = `Change this app: **${game.title}** (${game.genre || "game"}${game.tagline ? ", " + game.tagline : ""}).`;
     const rules = "\n\n" + patchRules();
-    if (file && file.code && file.code.length <= PATCH_MAX) {
+    // A game added by hand has a card but no file yet: there is nothing to patch,
+    // and asking "which page / which line" would only stall them. Build it instead.
+    if (!file || !file.code) {
+      return `Build this game: **${game.title}** (${game.genre || "game"}${game.tagline ? ", " + game.tagline : ""}).\n\n` +
+        `It is in the library but has no code file yet — you are writing its first playable version, and the Save button puts it into **${game.title}** itself.\n\n` +
+        "Rules:\n" +
+        "- Answer with ONE complete HTML file in a single ```html fence, everything inline, ending with </html>.\n" +
+        "- Never ask which page, which file or which line, and never ask me to paste code: this game has exactly one file and you are writing it now.\n" +
+        "- If my message does not say what the game should be, take the most likely reading from its title and genre, and say that reading in one short line.\n" +
+        "- Keep it compact, under 250 lines, with real controls for keyboard, mouse and touch, a visible score or result, and a restart.";
+    }
+    if (file.code.length <= PATCH_MAX) {
       return head + rules + "\n\nThe whole file is below — copy its lines from here exactly.\n\n```html\n" + file.code + "\n```";
     }
-    const outline = outlineOf(file && file.code ? file.code : "");
-    return head + rules + `\n\nIts file is too big to paste (${file && file.code ? Math.round(file.code.length / 1000) + " KB" : "not loadable"}), so here are its real lines with their line numbers. Anchor on one of them exactly, or use APPEND:\n\n` + outline;
+    const outline = outlineOf(file.code);
+    return head + rules + `\n\nIts file is too big to paste (${Math.round(file.code.length / 1000)} KB), so here are its real lines with their line numbers. Anchor on one of them exactly, or use APPEND:\n\n` + outline;
   }
 
   function parsePatch(text) {
@@ -1749,14 +1781,14 @@ render();
 
     try {
       const file = editingGame ? await currentGameCode(editingGame) : null;
-      const messages = [{ role: "system", content: AI_RULES }]
+      const messages = [{ role: "system", content: aiRules() }]
         .concat(convo.slice(-8).map((m) => ({
           role: m.role,
           content: m.role === "assistant" ? String(m.content).slice(0, 1500) : String(m.content)
         })));
       if (editingGame) messages.push({ role: "user", content: contextForEditing(editingGame, file) });
 
-      const maxTokens = editingGame ? 2000 : isBuildAsk(trimmed) ? 4000 : 900;
+      const maxTokens = editingGame ? (file && file.code ? 2000 : 4000) : isBuildAsk(trimmed) ? 4000 : 900;
       let out = await window.PowerplayAI.ask({ messages, maxTokens });
       let plan = aiPlan(out.text, trimmed);
       let patchInfo = null;
@@ -1765,34 +1797,48 @@ render();
 
       if (editingGame) {
         const base = file && file.code ? file.code : "";
-        let blocks = parsePatch(out.text);
-        let applied = base ? applyPatch(base, blocks) : { code: base, done: [], missed: [] };
+        if (!base) {
+          // No file behind this game yet, so a whole file is its first build, not a patch.
+          if (plan.code && (out.truncated || !looksWhole(plan.code))) {
+            messages.push({ role: "assistant", content: String(out.text).slice(0, 3000) });
+            messages.push({
+              role: "user",
+              content: "That answer was cut off by the length limit. Return ONE complete file that fits: the same game in under 200 lines, no comments, everything inline, ending with </html>."
+            });
+            out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
+            const second = aiPlan(out.text, trimmed);
+            if (second.code && (looksWhole(second.code) || !looksWhole(plan.code))) plan = second;
+          }
+        } else {
+          let blocks = parsePatch(out.text);
+          let applied = applyPatch(base, blocks);
 
-        // The blocks did not line up with the file: ask once more, with the file in view.
-        if (base && blocks.length && !applied.done.length) {
-          patchTried = true;
-          messages.push({ role: "assistant", content: String(out.text).slice(0, 3000) });
-          messages.push({
-            role: "user",
-            content: "None of those FIND lines matched the file exactly. Copy the lines character for character from the file in this conversation, or use ---- APPEND ---- for code that goes at the end. Send the blocks again."
-          });
-          out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
-          blocks = parsePatch(out.text);
-          applied = applyPatch(base, blocks);
-        }
+          // The blocks did not line up with the file: ask once more, with the file in view.
+          if (blocks.length && !applied.done.length) {
+            patchTried = true;
+            messages.push({ role: "assistant", content: String(out.text).slice(0, 3000) });
+            messages.push({
+              role: "user",
+              content: "None of those FIND lines matched the file exactly. Copy the lines character for character from the file in this conversation, or use ---- APPEND ---- for code that goes at the end. Send the blocks again."
+            });
+            out = await window.PowerplayAI.ask({ messages, maxTokens: 4000 });
+            blocks = parsePatch(out.text);
+            applied = applyPatch(base, blocks);
+          }
 
-        if (blocks.length && applied.done.length) {
-          plan.code = applied.code;   // the patched real file, nothing else touched
-          patchInfo = applied;
-        } else if (blocks.length || patchTried) {
-          plan.code = "";             // never replace the game with a patch that missed
-        } else if (plan.code) {
-          // A whole file is only taken if the user asked for a rewrite: a change
-          // request must never turn into a different game in their library.
-          const asDoc = /<!doctype|<html|<body/i.test(plan.code);
-          const shrunk = base.length > PATCH_MAX && plan.code.length < base.length * 0.5;
-          const askedRewrite = /\b(rewrite|rebuild|start over|from scratch|new version of the (whole |entire )?(file|game|code)|replace (it|the (whole |entire )?(file|game|code)))\b/i.test(trimmed);
-          if (!asDoc || shrunk || !askedRewrite) { plan.code = ""; junk = true; }
+          if (blocks.length && applied.done.length) {
+            plan.code = applied.code;   // the patched real file, nothing else touched
+            patchInfo = applied;
+          } else if (blocks.length || patchTried) {
+            plan.code = "";             // never replace the game with a patch that missed
+          } else if (plan.code) {
+            // A whole file is only taken if the user asked for a rewrite: a change
+            // request must never turn into a different game in their library.
+            const asDoc = /<!doctype|<html|<body/i.test(plan.code);
+            const shrunk = base.length > PATCH_MAX && plan.code.length < base.length * 0.5;
+            const askedRewrite = /\b(rewrite|rebuild|start over|from scratch|new version of the (whole |entire )?(file|game|code)|replace (it|the (whole |entire )?(file|game|code)))\b/i.test(trimmed);
+            if (!asDoc || shrunk || !askedRewrite) { plan.code = ""; junk = true; }
+          }
         }
       } else if (plan.code && (out.truncated || !looksWhole(plan.code))) {
         // A cut-off answer is asked for again as a compact file that fits the limit.

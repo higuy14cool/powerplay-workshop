@@ -1149,6 +1149,7 @@
       escapeHtml,
       formatNum,
       getGames: () => state.games.slice(),
+      activeGame: () => state.activeGame,
       playLink,
       installLink,
       setGameScope,
